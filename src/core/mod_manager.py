@@ -1,0 +1,191 @@
+"""
+Mod management operations including installation, enabling, and conflict detection.
+"""
+
+import shutil
+import zipfile
+import rarfile
+from pathlib import Path
+from datetime import datetime
+from typing import List, Dict, Optional, Tuple
+
+
+class ModManager:
+    """Manages mod installation, tracking, and conflict detection."""
+
+    def __init__(self, mod_storage_dir: Path):
+        """
+        Initialize mod manager.
+
+        Args:
+            mod_storage_dir: Directory for storing mod files
+        """
+        self.mod_storage_dir = Path(mod_storage_dir)
+        self.mod_storage_dir.mkdir(parents=True, exist_ok=True)
+        self.mods: List[Dict] = []
+
+    def extract_mod(self, archive_path: str, mod_name: str, temp_dir: Path) -> Tuple[bool, Optional[List[Path]], Optional[str]]:
+        """
+        Extract mod archive and find bundle files.
+
+        Args:
+            archive_path: Path to mod archive file
+            mod_name: Name for this mod
+            temp_dir: Temporary extraction directory
+
+        Returns:
+            Tuple of (success, bundle_files_list, error_message)
+        """
+        try:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+            temp_dir.mkdir(exist_ok=True)
+
+            # Extract based on file type
+            if archive_path.endswith('.zip'):
+                with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
+            elif archive_path.endswith('.rar'):
+                with rarfile.RarFile(archive_path, 'r') as rar_ref:
+                    rar_ref.extractall(temp_dir)
+            else:
+                return False, None, "Only ZIP and RAR archives are supported."
+
+            # Find bundle files
+            bundle_files = list(temp_dir.rglob("*.bundle"))
+
+            if not bundle_files:
+                return False, None, (
+                    "No .bundle files found in the archive.\n\n"
+                    "Please ensure the archive contains FM26 mod files."
+                )
+
+            return True, bundle_files, None
+
+        except Exception as e:
+            return False, None, f"Could not extract the archive:\n\n{str(e)}"
+
+    def install_mod(self, mod_name: str, bundle_files: List[Path]) -> Tuple[bool, Optional[str]]:
+        """
+        Copy mod files to permanent storage.
+
+        Args:
+            mod_name: Name of the mod
+            bundle_files: List of extracted bundle file paths
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        try:
+            mod_storage = self.mod_storage_dir / mod_name
+            if mod_storage.exists():
+                shutil.rmtree(mod_storage)
+            mod_storage.mkdir(parents=True, exist_ok=True)
+
+            for bundle_file in bundle_files:
+                shutil.copy2(bundle_file, mod_storage / bundle_file.name)
+
+            return True, None
+
+        except Exception as e:
+            return False, str(e)
+
+    def create_mod_entry(self, mod_name: str, bundle_files: List[Path]) -> Dict:
+        """
+        Create mod metadata entry.
+
+        Args:
+            mod_name: Name of the mod
+            bundle_files: List of bundle files
+
+        Returns:
+            Mod metadata dictionary
+        """
+        mod_storage = self.mod_storage_dir / mod_name
+
+        return {
+            'name': mod_name,
+            'enabled': False,
+            'files': [f.name for f in bundle_files],
+            'file_paths': {f.name: str(mod_storage / f.name) for f in bundle_files},
+            'added_date': datetime.now().isoformat()
+        }
+
+    def check_conflicts(self, file_names: List[str]) -> Dict[str, str]:
+        """
+        Check if files conflict with currently enabled mods.
+
+        Args:
+            file_names: List of bundle file names to check
+
+        Returns:
+            Dictionary mapping conflicting files to mod names
+        """
+        conflicts = {}
+        for mod in self.mods:
+            if mod['enabled']:
+                for file_name in file_names:
+                    if file_name in mod['files']:
+                        conflicts[file_name] = mod['name']
+        return conflicts
+
+    def enable_mod(self, mod: Dict, data_path: Path) -> Tuple[bool, List[str], Optional[str]]:
+        """
+        Copy mod files to game directory.
+
+        Args:
+            mod: Mod metadata dictionary
+            data_path: Path to game data folder
+
+        Returns:
+            Tuple of (success, copied_files_list, error_message)
+        """
+        copied_files = []
+
+        try:
+            for file_name, file_path in mod['file_paths'].items():
+                if not Path(file_path).exists():
+                    return False, copied_files, f"Mod file missing: {file_name}"
+
+                dest = data_path / file_name
+                shutil.copy2(file_path, dest)
+                copied_files.append(file_name)
+
+            return True, copied_files, None
+
+        except Exception as e:
+            return False, copied_files, str(e)
+
+    def validate_mod_name(self, mod_name: str) -> Optional[str]:
+        """
+        Validate mod name for duplicates and empty strings.
+
+        Args:
+            mod_name: Proposed mod name
+
+        Returns:
+            Error message if invalid, None if valid
+        """
+        mod_name = mod_name.strip()
+
+        if not mod_name:
+            return "Mod name cannot be empty."
+
+        if any(m['name'] == mod_name for m in self.mods):
+            return f"A mod named '{mod_name}' already exists.\nPlease choose a different name."
+
+        return None
+
+    def get_mod_by_name(self, mod_name: str) -> Optional[Dict]:
+        """Get mod metadata by name."""
+        return next((m for m in self.mods if m['name'] == mod_name), None)
+
+    def remove_mod_files(self, mod_name: str) -> None:
+        """Delete mod files from storage."""
+        mod_storage = self.mod_storage_dir / mod_name
+        if mod_storage.exists():
+            shutil.rmtree(mod_storage)
+
+    def get_enabled_mods(self) -> List[Dict]:
+        """Get list of currently enabled mods."""
+        return [m for m in self.mods if m['enabled']]
