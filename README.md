@@ -93,13 +93,6 @@ See [BUILD.md](BUILD.md) for detailed build instructions.
 - Windows: `build_windows.bat`
 - macOS: `./build_macos.sh`
 
-### Code Style
-
-- **Modular design** - Each module has a single responsibility
-- **Type hints** - Used throughout for better IDE support
-- **Docstrings** - All public functions documented
-- **Error handling** - All operations wrapped in try-catch with UI feedback
-- **No crashes** - Global exception handler ensures graceful failures
 
 ### Adding New Features
 
@@ -109,23 +102,6 @@ See [BUILD.md](BUILD.md) for detailed build instructions.
 4. Test error cases thoroughly
 5. Update this README
 
-## Architecture
-
-### Core Principles
-
-- **Separation of Concerns**: Business logic separated from UI
-- **Error Recovery**: All operations handle failures gracefully
-- **User Feedback**: Status bar shows real-time operation progress
-- **Data Safety**: Atomic config writes prevent corruption
-- **Space Efficiency**: Selective backups save disk space
-
-### Key Components
-
-- **PathManager**: OS-specific path handling and validation
-- **BackupManager**: Smart backup system that only saves modified files
-- **ModManager**: Handles mod extraction, installation, and conflicts
-- **ConfigManager**: Atomic configuration saves with corruption recovery
-- **UI Components**: Reusable widgets with consistent styling
 
 ## License
 
