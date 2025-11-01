@@ -5,6 +5,7 @@ Mod management operations including installation, enabling, and conflict detecti
 import shutil
 import zipfile
 import rarfile
+import traceback
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
@@ -24,7 +25,44 @@ class ModManager:
         self.mod_storage_dir.mkdir(parents=True, exist_ok=True)
         self.mods: List[Dict] = []
 
-    def extract_mod(self, archive_path: str, mod_name: str, temp_dir: Path) -> Tuple[bool, Optional[List[Path]], Optional[str]]:
+        # Configure rarfile to use unrar tool
+        self._setup_rar_tool()
+
+    def _setup_rar_tool(self):
+        """Configure rarfile library to find unrar executable."""
+        import platform
+        import os
+
+        system = platform.system()
+
+        if system == "Windows":
+            # Common locations for UnRAR on Windows
+            possible_paths = [
+                r"C:\Program Files\WinRAR\UnRAR.exe",
+                r"C:\Program Files (x86)\WinRAR\UnRAR.exe",
+                os.path.join(os.environ.get('PROGRAMFILES', ''), 'WinRAR', 'UnRAR.exe'),
+                os.path.join(os.environ.get('PROGRAMFILES(X86)', ''), 'WinRAR', 'UnRAR.exe'),
+            ]
+
+            for path in possible_paths:
+                if os.path.exists(path):
+                    rarfile.UNRAR_TOOL = path
+                    return
+
+            # Try to find in PATH
+            rarfile.UNRAR_TOOL = "unrar"
+
+        elif system == "Darwin":
+            # macOS - try homebrew location
+            homebrew_path = "/opt/homebrew/bin/unrar"
+            if os.path.exists(homebrew_path):
+                rarfile.UNRAR_TOOL = homebrew_path
+            else:
+                rarfile.UNRAR_TOOL = "unrar"
+        else:
+            rarfile.UNRAR_TOOL = "unrar"
+
+    def extract_mod(self, archive_path: str, mod_name: str, temp_dir: Path) -> Tuple[bool, Optional[List[Path]], Optional[str], Optional[str]]:
         """
         Extract mod archive and find bundle files.
 
@@ -34,7 +72,7 @@ class ModManager:
             temp_dir: Temporary extraction directory
 
         Returns:
-            Tuple of (success, bundle_files_list, error_message)
+            Tuple of (success, bundle_files_list, error_message, traceback_str)
         """
         try:
             if temp_dir.exists():
@@ -46,10 +84,21 @@ class ModManager:
                 with zipfile.ZipFile(archive_path, 'r') as zip_ref:
                     zip_ref.extractall(temp_dir)
             elif archive_path.endswith('.rar'):
-                with rarfile.RarFile(archive_path, 'r') as rar_ref:
-                    rar_ref.extractall(temp_dir)
+                try:
+                    with rarfile.RarFile(archive_path, 'r') as rar_ref:
+                        rar_ref.extractall(temp_dir)
+                except rarfile.RarCannotExec as e:
+                    # UnRAR tool not found
+                    error_msg = (
+                        "RAR extraction tool not found.\n\n"
+                        "To extract RAR files, please install:\n\n"
+                        "Windows: Download and install WinRAR from https://www.win-rar.com/\n"
+                        "macOS: Run 'brew install unrar' in Terminal\n\n"
+                        "Alternatively, extract the RAR file manually and create a ZIP archive instead."
+                    )
+                    return False, None, error_msg, traceback.format_exc()
             else:
-                return False, None, "Only ZIP and RAR archives are supported."
+                return False, None, "Only ZIP and RAR archives are supported.", None
 
             # Find bundle files
             bundle_files = list(temp_dir.rglob("*.bundle"))
@@ -58,12 +107,12 @@ class ModManager:
                 return False, None, (
                     "No .bundle files found in the archive.\n\n"
                     "Please ensure the archive contains FM26 mod files."
-                )
+                ), None
 
-            return True, bundle_files, None
+            return True, bundle_files, None, None
 
         except Exception as e:
-            return False, None, f"Could not extract the archive:\n\n{str(e)}"
+            return False, None, f"Could not extract the archive:\n\n{str(e)}", traceback.format_exc()
 
     def install_mod(self, mod_name: str, bundle_files: List[Path]) -> Tuple[bool, Optional[str]]:
         """

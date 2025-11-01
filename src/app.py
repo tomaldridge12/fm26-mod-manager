@@ -13,6 +13,7 @@ from core.mod_manager import ModManager
 from core.config import ConfigManager
 from ui.styles import apply_dark_theme, COLORS
 from ui.components import StatusBar, ActionButton, ModTreeView
+from ui.dialogs import show_error
 
 
 class FM26ModManagerApp:
@@ -315,10 +316,10 @@ class FM26ModManagerApp:
         try:
             self.status_bar.show(f"Extracting '{mod_name}'...", "info")
 
-            success, bundle_files, error_msg = self.mod_manager.extract_mod(file_path, mod_name, temp_dir)
+            success, bundle_files, error_msg, traceback_str = self.mod_manager.extract_mod(file_path, mod_name, temp_dir)
             if not success:
                 self.status_bar.show("Extraction failed", "error")
-                messagebox.showerror("Extraction Failed", error_msg)
+                show_error(self.root, "Extraction Failed", error_msg, traceback_str)
                 return
 
             # Check conflicts
