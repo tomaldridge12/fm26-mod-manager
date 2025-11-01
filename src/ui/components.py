@@ -1,5 +1,5 @@
 """
-Reusable UI components and widgets.
+Reusable UI components and widgets - Modern sleek design.
 """
 
 import tkinter as tk
@@ -9,52 +9,136 @@ from .styles import COLORS
 
 
 class StatusBar:
-    """Status bar for displaying operation feedback."""
+    """Modern status bar with icon and subtle animations."""
 
     def __init__(self, parent: tk.Widget):
-        self.frame = tk.Frame(parent, bg=COLORS['bg_secondary'], height=30)
+        self.frame = tk.Frame(
+            parent,
+            bg=COLORS['bg_tertiary'],
+            height=36,
+            highlightthickness=1,
+            highlightbackground=COLORS['border'],
+            highlightcolor=COLORS['border']
+        )
+
+        # Status icon
+        self.icon_label = tk.Label(
+            self.frame,
+            text="●",
+            bg=COLORS['bg_tertiary'],
+            fg=COLORS['success'],
+            font=('Segoe UI', 12),
+            anchor=tk.W
+        )
+        self.icon_label.pack(side=tk.LEFT, padx=(15, 5))
+
+        # Status text
         self.label = tk.Label(
             self.frame,
             text="Ready",
-            bg=COLORS['bg_secondary'],
+            bg=COLORS['bg_tertiary'],
             fg=COLORS['fg_primary'],
             font=('Segoe UI', 9),
             anchor=tk.W
         )
-        self.label.pack(side=tk.LEFT, padx=10, pady=5)
+        self.label.pack(side=tk.LEFT, padx=(0, 15))
 
     def pack(self, **kwargs):
         """Pack the status bar frame."""
         self.frame.pack(**kwargs)
 
     def show(self, message: str, status_type: str = "info"):
-        """Update status message with color coding."""
+        """Update status message with icon and color coding."""
+        # Icon colors based on status
+        icon_colors = {
+            'info': COLORS['info'],
+            'success': COLORS['success'],
+            'warning': COLORS['warning'],
+            'error': COLORS['error']
+        }
+
         color = COLORS.get(status_type, COLORS['fg_primary'])
+        icon_color = icon_colors.get(status_type, COLORS['info'])
+
+        self.icon_label.config(fg=icon_color)
         self.label.config(text=message, fg=color)
         self.frame.update_idletasks()
 
 
 class ActionButton:
-    """Styled action button with consistent appearance."""
+    """Modern button with hover effects and rounded appearance."""
 
     def __init__(self, parent: tk.Widget, text: str, command: Callable,
-                 bg_color: str = None, fg_color: str = None, bold: bool = False):
-        font_style = ('Segoe UI', 10, 'bold') if bold else ('Segoe UI', 10)
-        bg = bg_color or COLORS['bg_secondary']
-        fg = fg_color or COLORS['fg_primary']
+                 style: str = 'secondary', icon: str = None):
+        """
+        Create modern action button.
+
+        Args:
+            parent: Parent widget
+            text: Button text
+            command: Click handler
+            style: 'primary', 'secondary', 'success', 'danger'
+            icon: Optional emoji/icon before text
+        """
+        # Style configurations
+        styles = {
+            'primary': {
+                'bg': COLORS['accent'],
+                'fg': '#ffffff',
+                'hover_bg': COLORS['accent_emphasis']
+            },
+            'secondary': {
+                'bg': COLORS['bg_elevated'],
+                'fg': COLORS['fg_primary'],
+                'hover_bg': COLORS['border']
+            },
+            'success': {
+                'bg': COLORS['success_emphasis'],
+                'fg': '#ffffff',
+                'hover_bg': COLORS['success']
+            },
+            'danger': {
+                'bg': COLORS['error_emphasis'],
+                'fg': '#ffffff',
+                'hover_bg': COLORS['error']
+            }
+        }
+
+        config = styles.get(style, styles['secondary'])
+        button_text = f"{icon}  {text}" if icon else text
 
         self.button = tk.Button(
             parent,
-            text=text,
+            text=button_text,
             command=command,
-            bg=bg,
-            fg=fg,
-            font=font_style,
+            bg=config['bg'],
+            fg=config['fg'],
+            font=('Segoe UI', 10, 'bold' if style == 'primary' else 'normal'),
             relief=tk.FLAT,
             cursor='hand2',
             padx=20,
-            pady=10
+            pady=10,
+            borderwidth=0,
+            activebackground=config['hover_bg'],
+            activeforeground=config['fg']
         )
+
+        # Store colors for hover effect
+        self.normal_bg = config['bg']
+        self.hover_bg = config['hover_bg']
+        self.fg_color = config['fg']
+
+        # Bind hover events
+        self.button.bind('<Enter>', self._on_enter)
+        self.button.bind('<Leave>', self._on_leave)
+
+    def _on_enter(self, event):
+        """Handle mouse enter."""
+        self.button.config(bg=self.hover_bg)
+
+    def _on_leave(self, event):
+        """Handle mouse leave."""
+        self.button.config(bg=self.normal_bg)
 
     def pack(self, **kwargs):
         """Pack the button."""
@@ -62,45 +146,64 @@ class ActionButton:
 
 
 class ModTreeView:
-    """Custom treeview for displaying mod list."""
+    """Modern mod list with card-like appearance."""
 
     def __init__(self, parent: tk.Widget):
-        self.frame = tk.Frame(parent, bg=COLORS['bg_secondary'])
+        # Container with border for depth
+        self.container = tk.Frame(
+            parent,
+            bg=COLORS['border'],
+            highlightthickness=0
+        )
 
-        # Scrollbar
-        scrollbar = tk.Scrollbar(self.frame, bg=COLORS['bg_secondary'])
+        # Inner frame for content
+        self.frame = tk.Frame(
+            self.container,
+            bg=COLORS['bg_secondary']
+        )
+        self.frame.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+
+        # Custom scrollbar
+        scrollbar = tk.Scrollbar(
+            self.frame,
+            bg=COLORS['bg_secondary'],
+            troughcolor=COLORS['bg_secondary'],
+            activebackground=COLORS['accent'],
+            highlightthickness=0,
+            borderwidth=0
+        )
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Treeview
+        # Treeview with modern spacing
         self.tree = ttk.Treeview(
             self.frame,
             columns=('Status', 'Name', 'Files'),
             show='tree headings',
             yscrollcommand=scrollbar.set,
             selectmode='browse',
-            height=15
+            height=12
         )
 
         self.tree.heading('#0', text='', anchor=tk.W)
-        self.tree.heading('Status', text='Status', anchor=tk.W)
-        self.tree.heading('Name', text='Mod Name', anchor=tk.W)
-        self.tree.heading('Files', text='Modified Files', anchor=tk.W)
+        self.tree.heading('Status', text='STATUS', anchor=tk.W)
+        self.tree.heading('Name', text='MOD NAME', anchor=tk.W)
+        self.tree.heading('Files', text='MODIFIED FILES', anchor=tk.W)
 
-        self.tree.column('#0', width=50, stretch=False)
-        self.tree.column('Status', width=100, stretch=False)
-        self.tree.column('Name', width=300)
-        self.tree.column('Files', width=350)
+        self.tree.column('#0', width=20, stretch=False)
+        self.tree.column('Status', width=120, stretch=False)
+        self.tree.column('Name', width=280)
+        self.tree.column('Files', width=380)
 
         self.tree.pack(fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.tree.yview)
 
-        # Tags for styling
+        # Modern tag styling
         self.tree.tag_configure('enabled', foreground=COLORS['success'])
-        self.tree.tag_configure('disabled', foreground=COLORS['error'])
+        self.tree.tag_configure('disabled', foreground=COLORS['fg_secondary'])
 
     def pack(self, **kwargs):
-        """Pack the frame."""
-        self.frame.pack(**kwargs)
+        """Pack the container."""
+        self.container.pack(**kwargs)
 
     def clear(self):
         """Remove all items."""
