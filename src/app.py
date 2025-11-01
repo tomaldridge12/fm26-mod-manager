@@ -134,7 +134,7 @@ class FM26ModManagerApp:
             textvariable=self.path_var,
             font=('Segoe UI', 9),
             bg=COLORS['bg_secondary'],
-            fg=COLORS['fg_primary'],
+            fg=COLORS['fg_secondary'],
             insertbackground=COLORS['accent'],
             relief=tk.FLAT,
             bd=0,

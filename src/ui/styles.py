@@ -37,6 +37,7 @@ COLORS = {
     'bg_primary': '#1a1a2e',
     'bg_secondary': '#2a2a3e',
     'fg_primary': '#e0e0e0',
+    'fg_secondary': '#1a1a2e',
     'accent': '#00d4ff',
     'success': '#00ff88',
     'warning': '#ffaa00',
