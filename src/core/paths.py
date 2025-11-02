@@ -132,3 +132,31 @@ class PathManager:
 
         except Exception as e:
             return False, None, f"An error occurred while validating the path:\n\n{str(e)}"
+
+    def get_executable_path(self, fm_root: Optional[str]) -> Optional[str]:
+        """
+        Get the path to the FM26 executable.
+
+        Args:
+            fm_root: Path to FM26 root folder
+
+        Returns:
+            Path to executable file, or None if not found
+        """
+        if not fm_root:
+            return None
+
+        try:
+            root_path = Path(fm_root)
+
+            if self.system == "Windows":
+                exe_path = root_path / "fm.exe"
+            elif self.system == "Darwin":
+                exe_path = root_path / "fm.app"
+            else:
+                return None
+
+            return str(exe_path) if exe_path.exists() else None
+
+        except Exception:
+            return None
