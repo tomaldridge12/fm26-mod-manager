@@ -25,6 +25,13 @@ class FM26ModManagerApp:
         self.root.configure(bg=COLORS['bg_primary'])
         self.root.minsize(900, 600)
 
+        # Configure Combobox dropdown popup colors
+        self.root.option_add('*TCombobox*Listbox.background', COLORS['bg_tertiary'])
+        self.root.option_add('*TCombobox*Listbox.foreground', COLORS['fg_primary'])
+        self.root.option_add('*TCombobox*Listbox.selectBackground', COLORS['accent_emphasis'])
+        self.root.option_add('*TCombobox*Listbox.selectForeground', '#ffffff')
+        self.root.option_add('*TCombobox*Listbox.font', ('Segoe UI', 10))
+
         self.path_manager = PathManager()
         self.fm_root_path = None
         self.data_path = None
@@ -230,19 +237,18 @@ class FM26ModManagerApp:
         profile_row.pack(fill=tk.X)
 
         self.profile_var = tk.StringVar(value=self.profile_manager.current_profile)
-        profile_label = tk.Label(
+
+        # Create combobox for profile selection
+        self.profile_combo = ttk.Combobox(
             profile_row,
             textvariable=self.profile_var,
-            font=('Segoe UI', 11, 'bold'),
-            bg=COLORS['bg_tertiary'],
-            fg=COLORS['accent'],
-            relief=tk.FLAT,
-            bd=0,
-            padx=15,
-            pady=10,
-            anchor=tk.W
+            values=self.profile_manager.get_profile_names(),
+            state='readonly',
+            font=('Segoe UI', 11),
+            width=30
         )
-        profile_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        self.profile_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        self.profile_combo.bind('<<ComboboxSelected>>', self._on_profile_changed)
 
         ActionButton(
             profile_row,
@@ -455,6 +461,55 @@ class FM26ModManagerApp:
                 f"An error occurred while updating the installation path:\n\n{str(e)}"
             )
 
+    def _on_profile_changed(self, event=None):
+        """Handle profile selection change from combobox."""
+        new_profile = self.profile_var.get()
+        old_profile = self.profile_manager.current_profile
+
+        if old_profile == new_profile:
+            return
+
+        self.logger.info(f"Switching profile from '{old_profile}' to '{new_profile}'")
+
+        # Save current profile's mods before switching
+        self.profile_manager.set_current_profile_mods(self.mod_manager.mods)
+
+        # Disable all enabled mods in current profile
+        if self._validate_paths() and self.backup_manager:
+            enabled_mods = [m for m in self.mod_manager.mods if m['enabled']]
+            if enabled_mods:
+                # Restore all files for currently enabled mods
+                all_files = []
+                for mod in enabled_mods:
+                    all_files.extend(mod['files'])
+
+                if all_files:
+                    self.backup_manager.restore_files(all_files)
+
+        # Switch to new profile
+        self.profile_manager.current_profile = new_profile
+
+        # Load new profile's mods
+        current = self.profile_manager.get_profile(new_profile)
+        if current:
+            self.mod_manager.mods = current['mods']
+        else:
+            self.mod_manager.mods = []
+
+        # Enable all mods that should be enabled in new profile
+        if self._validate_paths() and self.backup_manager:
+            enabled_mods = [m for m in self.mod_manager.mods if m['enabled']]
+            for mod in enabled_mods:
+                # Backup and enable each mod
+                self.backup_manager.backup_files(mod['files'])
+                self.mod_manager.enable_mod(mod, Path(self.data_path))
+
+        # Update UI
+        self._refresh_mod_list()
+        self._save_config()
+
+        self.logger.success(f"Successfully switched to profile '{new_profile}'")
+
     def _manage_profiles(self):
         """Handle profile management dialog."""
         self.logger.debug("Opening profile management dialog")
@@ -510,6 +565,7 @@ class FM26ModManagerApp:
 
             # Update UI
             self.profile_var.set(new_profile)
+            self.profile_combo['values'] = self.profile_manager.get_profile_names()
             self._refresh_mod_list()
             self._save_config()
 
@@ -518,6 +574,7 @@ class FM26ModManagerApp:
             # Just update profiles list (renames, deletions, etc.)
             self.logger.debug("Profile list updated (no switch)")
             self.profile_manager.profiles = result['profiles']
+            self.profile_combo['values'] = self.profile_manager.get_profile_names()
             self._save_config()
 
     def _launch_game(self):

@@ -38,6 +38,34 @@ def apply_dark_theme(style: ttk.Style):
     style.map('Treeview.Heading',
               background=[('active', '#30363d')])
 
+    # Combobox styling
+    style.configure('TCombobox',
+                    fieldbackground='#21262d',
+                    background='#21262d',
+                    foreground='#c9d1d9',
+                    arrowcolor='#58a6ff',
+                    bordercolor='#30363d',
+                    lightcolor='#21262d',
+                    darkcolor='#21262d',
+                    borderwidth=1,
+                    relief='flat',
+                    padding=10)
+    style.map('TCombobox',
+              fieldbackground=[('readonly', '#21262d')],
+              selectbackground=[('readonly', '#21262d')],
+              selectforeground=[('readonly', '#c9d1d9')],
+              background=[('readonly', '#21262d')],
+              foreground=[('readonly', '#c9d1d9')],
+              arrowcolor=[('readonly', '#58a6ff')])
+
+    # Combobox dropdown listbox
+    style.configure('Combobox.Listbox',
+                    background='#21262d',
+                    foreground='#c9d1d9',
+                    selectbackground='#1f6feb',
+                    selectforeground='#ffffff',
+                    borderwidth=0)
+
 
 COLORS = {
     'bg_primary': '#0d1117',      # Deep dark background
