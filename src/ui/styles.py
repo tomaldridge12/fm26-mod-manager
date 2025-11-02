@@ -1,7 +1,3 @@
-"""
-UI styling and theme configuration - Modern sleek design.
-"""
-
 from tkinter import ttk
 
 
@@ -9,7 +5,6 @@ def apply_dark_theme(style: ttk.Style):
     """Apply modern sleek dark theme with subtle gradients and depth."""
     style.theme_use('clam')
 
-    # Base styles with modern spacing
     style.configure('TFrame', background='#0d1117')
     style.configure('TLabel',
                     background='#0d1117',
@@ -24,7 +19,6 @@ def apply_dark_theme(style: ttk.Style):
                     foreground='#8b949e',
                     background='#0d1117')
 
-    # Modern treeview with better contrast
     style.configure('Treeview',
                     background='#161b22',
                     foreground='#c9d1d9',
@@ -45,7 +39,6 @@ def apply_dark_theme(style: ttk.Style):
               background=[('active', '#30363d')])
 
 
-# Modern color palette inspired by GitHub Dark theme
 COLORS = {
     'bg_primary': '#0d1117',      # Deep dark background
     'bg_secondary': '#161b22',    # Slightly lighter panels

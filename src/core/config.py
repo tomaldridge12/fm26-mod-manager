@@ -1,7 +1,3 @@
-"""
-Configuration management with atomic writes and error recovery.
-"""
-
 import json
 import shutil
 from pathlib import Path
@@ -39,7 +35,6 @@ class ConfigManager:
                 return fm_root_path, mods
 
         except (json.JSONDecodeError, Exception):
-            # Corrupted config - return defaults
             return None, []
 
     def save(self, fm_root_path: Optional[str], mods: List[Dict]) -> bool:
@@ -61,7 +56,6 @@ class ConfigManager:
                 'mods': mods
             }
 
-            # Atomic write: write to temp file, then rename
             temp_file = self.config_file.with_suffix('.tmp')
             with open(temp_file, 'w') as f:
                 json.dump(data, f, indent=2)

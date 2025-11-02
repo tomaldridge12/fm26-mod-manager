@@ -1,7 +1,3 @@
-"""
-Custom dialog windows with modern design and enhanced error reporting.
-"""
-
 import tkinter as tk
 from tkinter import scrolledtext
 from .styles import COLORS
@@ -17,14 +13,11 @@ class ModernDialog:
         self.dialog.configure(bg=COLORS['bg_primary'])
         self.dialog.resizable(False, False)
 
-        # Remove window decorations for custom appearance
         self.dialog.overrideredirect(False)
 
-        # Center on parent
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
-        # Set minimum width
         self.dialog.minsize(width, 100)
 
     def _center_on_parent(self, parent):
@@ -43,11 +36,9 @@ class InputDialog(ModernDialog):
     def __init__(self, parent, title: str, prompt: str, initial_value: str = ""):
         super().__init__(parent, title, width=520)
 
-        # Main container
         container = tk.Frame(self.dialog, bg=COLORS['bg_primary'])
         container.pack(fill=tk.BOTH, expand=True, padx=25, pady=25)
 
-        # Title
         title_label = tk.Label(
             container,
             text=title,
@@ -57,7 +48,6 @@ class InputDialog(ModernDialog):
         )
         title_label.pack(anchor=tk.W, pady=(0, 15))
 
-        # Prompt text
         prompt_label = tk.Label(
             container,
             text=prompt,
@@ -68,7 +58,6 @@ class InputDialog(ModernDialog):
         )
         prompt_label.pack(anchor=tk.W, pady=(0, 12))
 
-        # Input field with modern styling
         input_frame = tk.Frame(container, bg=COLORS['bg_primary'])
         input_frame.pack(fill=tk.X, pady=(0, 20))
 
@@ -89,15 +78,12 @@ class InputDialog(ModernDialog):
         self.entry.select_range(0, tk.END)
         self.entry.focus()
 
-        # Bind Enter key
         self.entry.bind('<Return>', lambda e: self._on_ok())
         self.entry.bind('<Escape>', lambda e: self._on_cancel())
 
-        # Button row
         button_frame = tk.Frame(container, bg=COLORS['bg_primary'])
         button_frame.pack(fill=tk.X)
 
-        # Cancel button
         cancel_btn = tk.Button(
             button_frame,
             text="Cancel",
@@ -113,7 +99,6 @@ class InputDialog(ModernDialog):
         )
         cancel_btn.pack(side=tk.RIGHT, padx=(10, 0))
 
-        # OK button
         ok_btn = tk.Button(
             button_frame,
             text="OK",
@@ -130,7 +115,6 @@ class InputDialog(ModernDialog):
         )
         ok_btn.pack(side=tk.RIGHT)
 
-        # Hover effects
         cancel_btn.bind('<Enter>', lambda e: cancel_btn.config(bg=COLORS['border']))
         cancel_btn.bind('<Leave>', lambda e: cancel_btn.config(bg=COLORS['bg_elevated']))
 
@@ -156,11 +140,9 @@ class ConfirmDialog(ModernDialog):
     def __init__(self, parent, title: str, message: str, confirm_text: str = "Confirm", cancel_text: str = "Cancel"):
         super().__init__(parent, title, width=500)
 
-        # Main container
         container = tk.Frame(self.dialog, bg=COLORS['bg_primary'])
         container.pack(fill=tk.BOTH, expand=True, padx=25, pady=25)
 
-        # Icon and title row
         header = tk.Frame(container, bg=COLORS['bg_primary'])
         header.pack(fill=tk.X, pady=(0, 15))
 
@@ -183,7 +165,6 @@ class ConfirmDialog(ModernDialog):
         )
         title_label.pack(side=tk.LEFT, anchor=tk.W)
 
-        # Message
         message_label = tk.Label(
             container,
             text=message,
@@ -195,11 +176,9 @@ class ConfirmDialog(ModernDialog):
         )
         message_label.pack(anchor=tk.W, pady=(0, 20))
 
-        # Button row
         button_frame = tk.Frame(container, bg=COLORS['bg_primary'])
         button_frame.pack(fill=tk.X)
 
-        # Cancel button
         cancel_btn = tk.Button(
             button_frame,
             text=cancel_text,
@@ -214,7 +193,6 @@ class ConfirmDialog(ModernDialog):
         )
         cancel_btn.pack(side=tk.RIGHT, padx=(10, 0))
 
-        # Confirm button
         confirm_btn = tk.Button(
             button_frame,
             text=confirm_text,
@@ -230,11 +208,9 @@ class ConfirmDialog(ModernDialog):
         )
         confirm_btn.pack(side=tk.RIGHT)
 
-        # Hover effects
         cancel_btn.bind('<Enter>', lambda e: cancel_btn.config(bg=COLORS['border']))
         cancel_btn.bind('<Leave>', lambda e: cancel_btn.config(bg=COLORS['bg_elevated']))
 
-        # Bind Escape to cancel
         self.dialog.bind('<Escape>', lambda e: self._on_cancel())
 
         self._center_on_parent(parent)
@@ -259,7 +235,6 @@ class MessageDialog(ModernDialog):
     def __init__(self, parent, title: str, message: str, message_type: str = "info"):
         super().__init__(parent, title, width=480)
 
-        # Icon and color based on type
         icons = {
             'info': ('ℹ', COLORS['info']),
             'success': ('✓', COLORS['success']),
@@ -268,11 +243,9 @@ class MessageDialog(ModernDialog):
         }
         icon_text, icon_color = icons.get(message_type, icons['info'])
 
-        # Main container
         container = tk.Frame(self.dialog, bg=COLORS['bg_primary'])
         container.pack(fill=tk.BOTH, expand=True, padx=25, pady=25)
 
-        # Icon and title row
         header = tk.Frame(container, bg=COLORS['bg_primary'])
         header.pack(fill=tk.X, pady=(0, 15))
 
@@ -295,7 +268,6 @@ class MessageDialog(ModernDialog):
         )
         title_label.pack(side=tk.LEFT, anchor=tk.W)
 
-        # Message
         message_label = tk.Label(
             container,
             text=message,
@@ -307,7 +279,6 @@ class MessageDialog(ModernDialog):
         )
         message_label.pack(anchor=tk.W, pady=(0, 20))
 
-        # OK button
         ok_btn = tk.Button(
             container,
             text="OK",
@@ -323,7 +294,6 @@ class MessageDialog(ModernDialog):
         )
         ok_btn.pack(anchor=tk.E)
 
-        # Bind Enter and Escape
         self.dialog.bind('<Return>', lambda e: self.dialog.destroy())
         self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
 
@@ -349,11 +319,9 @@ class ErrorDialog(ModernDialog):
         """
         super().__init__(parent, title, width=550)
 
-        # Main container
         container = tk.Frame(self.dialog, bg=COLORS['bg_primary'])
         container.pack(fill=tk.BOTH, expand=True, padx=25, pady=25)
 
-        # Icon and title row
         header = tk.Frame(container, bg=COLORS['bg_primary'])
         header.pack(fill=tk.X, pady=(0, 15))
 
@@ -376,7 +344,6 @@ class ErrorDialog(ModernDialog):
         )
         title_label.pack(side=tk.LEFT, anchor=tk.W)
 
-        # Error message
         message_label = tk.Label(
             container,
             text=message,
@@ -388,13 +355,11 @@ class ErrorDialog(ModernDialog):
         )
         message_label.pack(anchor=tk.W, pady=(0, 15))
 
-        # Details section (expandable)
         if details:
             self.details_frame = None
             self.details_visible = False
             self.details_text = details
 
-            # Show/Hide details button
             self.toggle_btn = tk.Button(
                 container,
                 text="▶  Show Technical Details",
@@ -410,11 +375,9 @@ class ErrorDialog(ModernDialog):
             )
             self.toggle_btn.pack(fill=tk.X, pady=(0, 15))
 
-            # Hover effect
             self.toggle_btn.bind('<Enter>', lambda e: self.toggle_btn.config(bg=COLORS['border']))
             self.toggle_btn.bind('<Leave>', lambda e: self.toggle_btn.config(bg=COLORS['bg_elevated']))
 
-        # OK button
         ok_btn = tk.Button(
             container,
             text="OK",
@@ -430,7 +393,6 @@ class ErrorDialog(ModernDialog):
         )
         ok_btn.pack(anchor=tk.E)
 
-        # Bind Enter and Escape
         self.dialog.bind('<Return>', lambda e: self.dialog.destroy())
         self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
 
@@ -439,14 +401,12 @@ class ErrorDialog(ModernDialog):
     def _toggle_details(self):
         """Toggle visibility of technical details."""
         if self.details_visible:
-            # Hide details
             if self.details_frame:
                 self.details_frame.destroy()
                 self.details_frame = None
             self.toggle_btn.config(text="▶  Show Technical Details")
             self.details_visible = False
         else:
-            # Show details
             self.details_frame = tk.Frame(self.dialog, bg=COLORS['bg_primary'])
             self.details_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 10))
 
@@ -460,7 +420,6 @@ class ErrorDialog(ModernDialog):
             )
             details_label.pack(fill=tk.X, pady=(0, 5))
 
-            # Scrolled text widget for details
             details_text = scrolledtext.ScrolledText(
                 self.details_frame,
                 height=10,
@@ -475,7 +434,6 @@ class ErrorDialog(ModernDialog):
             details_text.insert('1.0', self.details_text)
             details_text.config(state=tk.DISABLED)
 
-            # Copy button
             copy_btn = tk.Button(
                 self.details_frame,
                 text="Copy to Clipboard",
@@ -493,7 +451,6 @@ class ErrorDialog(ModernDialog):
             self.toggle_btn.config(text="▼  Hide Technical Details")
             self.details_visible = True
 
-            # Reposition dialog
             self.dialog.update_idletasks()
 
     def _copy_to_clipboard(self, text_widget):

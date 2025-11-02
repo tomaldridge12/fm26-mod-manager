@@ -1,7 +1,3 @@
-"""
-Main application class orchestrating all components.
-"""
-
 import sys
 import tkinter as tk
 from tkinter import filedialog, ttk
@@ -26,20 +22,16 @@ class FM26ModManagerApp:
         self.root.configure(bg=COLORS['bg_primary'])
         self.root.minsize(900, 650)
 
-        # Initialize core managers
         self.path_manager = PathManager()
         self.fm_root_path = None
         self.data_path = None
 
-        # Auto-detect installation
         self.fm_root_path = self.path_manager.detect_installation()
         if self.fm_root_path:
             self.data_path = self.path_manager.get_data_path(self.fm_root_path)
 
-        # Setup storage paths
         self._setup_storage()
 
-        # Initialize managers with storage paths
         self.config_manager = ConfigManager(self.config_file)
         self.mod_manager = ModManager(self.backup_dir / "mods")
         if self.data_path:
@@ -47,14 +39,11 @@ class FM26ModManagerApp:
         else:
             self.backup_manager = None
 
-        # Load saved configuration
         self._load_config()
 
-        # Build UI
         self._create_ui()
         self._refresh_mod_list()
 
-        # Show warning if no installation found
         if not self.fm_root_path or not self.path_manager.validate_installation(self.fm_root_path):
             self.status_bar.show("No valid FM26 installation detected. Please browse to your installation folder.", "warning")
 
@@ -72,7 +61,6 @@ class FM26ModManagerApp:
             self.backup_dir.mkdir(exist_ok=True)
 
         except Exception:
-            # Fallback to home directory
             base_path = Path.home() / ".fm26_mod_manager"
             base_path.mkdir(exist_ok=True)
             self.config_file = base_path / "config.json"
@@ -102,7 +90,6 @@ class FM26ModManagerApp:
         style = ttk.Style()
         apply_dark_theme(style)
 
-        # Header with branding
         header_frame = ttk.Frame(self.root)
         header_frame.pack(fill=tk.X, padx=30, pady=(25, 15))
 
@@ -116,25 +103,20 @@ class FM26ModManagerApp:
         )
         subtitle_label.pack(anchor=tk.W, pady=(5, 0))
 
-        # Separator line
         separator = tk.Frame(self.root, bg=COLORS['border'], height=1)
         separator.pack(fill=tk.X, padx=30, pady=(10, 20))
 
-        # Installation path section
         self._create_path_section()
 
-        # Main content area
         self._create_action_buttons()
         self._create_mod_list()
         self._create_mod_controls()
 
-        # Status bar at bottom
         self.status_bar = StatusBar(self.root)
         self.status_bar.pack(fill=tk.X, side=tk.BOTTOM)
 
     def _create_path_section(self):
         """Create modern installation path card."""
-        # Card container
         card = tk.Frame(
             self.root,
             bg=COLORS['bg_secondary'],
@@ -144,11 +126,9 @@ class FM26ModManagerApp:
         )
         card.pack(fill=tk.X, padx=30, pady=(0, 20))
 
-        # Card content
         content = tk.Frame(card, bg=COLORS['bg_secondary'])
         content.pack(fill=tk.X, padx=15, pady=15)
 
-        # Label
         label = tk.Label(
             content,
             text="Installation Path",
@@ -158,7 +138,6 @@ class FM26ModManagerApp:
         )
         label.pack(anchor=tk.W, pady=(0, 8))
 
-        # Path display and browse button row
         path_row = tk.Frame(content, bg=COLORS['bg_secondary'])
         path_row.pack(fill=tk.X)
 
@@ -211,7 +190,6 @@ class FM26ModManagerApp:
         list_frame = ttk.Frame(self.root)
         list_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=(0, 15))
 
-        # Section header
         header = tk.Label(
             list_frame,
             text="Installed Mods",
@@ -288,7 +266,6 @@ class FM26ModManagerApp:
             return
 
         try:
-            # Validate selection
             is_valid, corrected_path, error_msg = self.path_manager.validate_folder_selection(path)
 
             if not is_valid:
@@ -296,15 +273,12 @@ class FM26ModManagerApp:
                 show_error(self.root, "Invalid Selection", error_msg)
                 return
 
-            # Update paths
             self.fm_root_path = corrected_path
             self.data_path = self.path_manager.get_data_path(corrected_path)
 
-            # Reinitialize managers with new paths
             self.backup_manager = BackupManager(self.backup_dir, self.data_path)
             self._setup_storage()
 
-            # Update UI and save
             self.path_var.set(corrected_path)
             self._save_config()
 
@@ -322,7 +296,6 @@ class FM26ModManagerApp:
         if not self._validate_paths():
             return
 
-        # File selection
         filetypes = [
             ("Archive files", "*.zip *.rar *.7z"),
             ("ZIP files", "*.zip"),
@@ -334,21 +307,18 @@ class FM26ModManagerApp:
         if not file_path or not Path(file_path).exists():
             return
 
-        # Get mod name
         mod_name = ask_string(self.root, "Mod Name", "Enter a name for this mod:", Path(file_path).stem
         )
 
         if not mod_name:
             return
 
-        # Validate name
         error = self.mod_manager.validate_mod_name(mod_name)
         if error:
             self.status_bar.show("Invalid mod name", "error")
             show_error(self.root, "Invalid Name", error)
             return
 
-        # Extract and install
         temp_dir = self.backup_dir / "temp_extract"
         try:
             self.status_bar.show(f"Extracting '{mod_name}'...", "info")
@@ -359,7 +329,6 @@ class FM26ModManagerApp:
                 show_error(self.root, "Extraction Failed", error_msg, traceback_str)
                 return
 
-            # Check conflicts
             conflicts = self.mod_manager.check_conflicts([f.name for f in bundle_files])
             if conflicts:
                 conflict_msg = "The following files conflict with enabled mods:\n\n"
@@ -376,7 +345,6 @@ class FM26ModManagerApp:
                 show_error(self.root, "Installation Failed", f"Failed to install mod:\n\n{error_msg}")
                 return
 
-            # Create and save mod entry
             mod_data = self.mod_manager.create_mod_entry(mod_name, bundle_files)
             self.mod_manager.mods.append(mod_data)
             self._save_config()
@@ -428,7 +396,6 @@ class FM26ModManagerApp:
                 show_info(self.root, "Already Enabled", "This mod is already enabled.")
                 return
 
-            # Check conflicts
             conflicts = self.mod_manager.check_conflicts(mod['files'])
             if conflicts:
                 self.status_bar.show("Cannot enable due to conflicts", "error")
@@ -442,7 +409,6 @@ class FM26ModManagerApp:
 
             self.status_bar.show(f"Enabling '{mod_name}'...", "info")
 
-            # Backup original files
             backed_up, failed = self.backup_manager.backup_files(mod['files'])
             if failed:
                 self.status_bar.show("Backup failed", "error")
@@ -456,11 +422,9 @@ class FM26ModManagerApp:
             if backed_up > 0:
                 self.status_bar.show(f"Backed up {backed_up} file(s) before modification", "info")
 
-            # Enable mod
             success, copied_files, error_msg = self.mod_manager.enable_mod(mod, Path(self.data_path))
 
             if not success:
-                # Rollback on failure
                 self.status_bar.show("Failed to enable mod, rolling back", "error")
                 if copied_files:
                     self.backup_manager.restore_files(copied_files)
@@ -507,7 +471,6 @@ class FM26ModManagerApp:
 
             self.status_bar.show(f"Disabling '{mod_name}'...", "info")
 
-            # Restore original files
             success, missing, failed = self.backup_manager.restore_files(mod['files'])
             if not success:
                 error_msg = ""
@@ -554,11 +517,9 @@ class FM26ModManagerApp:
 
             self.status_bar.show(f"Removing '{mod_name}'...", "info")
 
-            # Disable if enabled
             if mod['enabled'] and self.backup_manager:
                 self.backup_manager.restore_files(mod['files'])
 
-            # Remove files and entry
             self.mod_manager.remove_mod_files(mod_name)
             self.mod_manager.mods.remove(mod)
             self._save_config()
@@ -602,7 +563,6 @@ class FM26ModManagerApp:
 
             restored, failed = self.backup_manager.restore_all()
 
-            # Disable all mods
             for mod in self.mod_manager.mods:
                 mod['enabled'] = False
 

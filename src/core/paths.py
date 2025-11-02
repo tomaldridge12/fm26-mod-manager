@@ -1,9 +1,3 @@
-"""
-Path management and validation for FM26 installations.
-
-Handles OS-specific path detection, validation, and construction.
-"""
-
 import platform
 from pathlib import Path
 from typing import Optional, Tuple
@@ -110,9 +104,7 @@ class PathManager:
         try:
             path_obj = Path(selected_path)
 
-            # Check if FM26 folder is in the path
             if "Football Manager 26" not in path_obj.parts:
-                # Try to find FM26 as subfolder
                 fm26_folder = path_obj / "Football Manager 26"
                 if fm26_folder.exists():
                     selected_path = str(fm26_folder)
@@ -123,14 +115,12 @@ class PathManager:
                         "Steam/steamapps/common/Football Manager 26"
                     )
 
-            # Validate the installation
             if not self.validate_installation(selected_path):
                 return False, None, (
                     "The selected folder does not contain a valid FM26 installation.\n\n"
                     "Please ensure you've selected the correct 'Football Manager 26' folder."
                 )
 
-            # Verify we can access data files
             data_path = self.get_data_path(selected_path)
             if not data_path:
                 return False, None, (

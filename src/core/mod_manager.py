@@ -1,7 +1,3 @@
-"""
-Mod management operations including installation, enabling, and conflict detection.
-"""
-
 import shutil
 import zipfile
 import rarfile
@@ -24,8 +20,6 @@ class ModManager:
         self.mod_storage_dir = Path(mod_storage_dir)
         self.mod_storage_dir.mkdir(parents=True, exist_ok=True)
         self.mods: List[Dict] = []
-
-        # Configure rarfile to use unrar tool
         self._setup_rar_tool()
 
     def _setup_rar_tool(self):
@@ -36,7 +30,6 @@ class ModManager:
         system = platform.system()
 
         if system == "Windows":
-            # Common locations for UnRAR on Windows
             possible_paths = [
                 r"C:\Program Files\WinRAR\UnRAR.exe",
                 r"C:\Program Files (x86)\WinRAR\UnRAR.exe",
@@ -49,11 +42,9 @@ class ModManager:
                     rarfile.UNRAR_TOOL = path
                     return
 
-            # Try to find in PATH
             rarfile.UNRAR_TOOL = "unrar"
 
         elif system == "Darwin":
-            # macOS - try homebrew location
             homebrew_path = "/opt/homebrew/bin/unrar"
             if os.path.exists(homebrew_path):
                 rarfile.UNRAR_TOOL = homebrew_path
@@ -79,7 +70,6 @@ class ModManager:
                 shutil.rmtree(temp_dir)
             temp_dir.mkdir(exist_ok=True)
 
-            # Extract based on file type
             if archive_path.endswith('.zip'):
                 with zipfile.ZipFile(archive_path, 'r') as zip_ref:
                     zip_ref.extractall(temp_dir)
@@ -88,7 +78,6 @@ class ModManager:
                     with rarfile.RarFile(archive_path, 'r') as rar_ref:
                         rar_ref.extractall(temp_dir)
                 except rarfile.RarCannotExec as e:
-                    # UnRAR tool not found
                     error_msg = (
                         "RAR extraction tool not found.\n\n"
                         "To extract RAR files, please install:\n\n"
@@ -100,7 +89,6 @@ class ModManager:
             else:
                 return False, None, "Only ZIP and RAR archives are supported.", None
 
-            # Find bundle files
             bundle_files = list(temp_dir.rglob("*.bundle"))
 
             if not bundle_files:

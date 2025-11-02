@@ -1,7 +1,3 @@
-"""
-Reusable UI components and widgets - Modern sleek design.
-"""
-
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable
@@ -21,7 +17,6 @@ class StatusBar:
             highlightcolor=COLORS['border']
         )
 
-        # Status icon
         self.icon_label = tk.Label(
             self.frame,
             text="●",
@@ -32,7 +27,6 @@ class StatusBar:
         )
         self.icon_label.pack(side=tk.LEFT, padx=(15, 5))
 
-        # Status text
         self.label = tk.Label(
             self.frame,
             text="Ready",
@@ -49,7 +43,6 @@ class StatusBar:
 
     def show(self, message: str, status_type: str = "info"):
         """Update status message with icon and color coding."""
-        # Icon colors based on status
         icon_colors = {
             'info': COLORS['info'],
             'success': COLORS['success'],
@@ -80,7 +73,6 @@ class ActionButton:
             style: 'primary', 'secondary', 'success', 'danger'
             icon: Optional emoji/icon before text
         """
-        # Style configurations
         styles = {
             'primary': {
                 'bg': COLORS['accent'],
@@ -123,12 +115,10 @@ class ActionButton:
             activeforeground=config['fg']
         )
 
-        # Store colors for hover effect
         self.normal_bg = config['bg']
         self.hover_bg = config['hover_bg']
         self.fg_color = config['fg']
 
-        # Bind hover events
         self.button.bind('<Enter>', self._on_enter)
         self.button.bind('<Leave>', self._on_leave)
 
@@ -149,21 +139,18 @@ class ModTreeView:
     """Modern mod list with card-like appearance."""
 
     def __init__(self, parent: tk.Widget):
-        # Container with border for depth
         self.container = tk.Frame(
             parent,
             bg=COLORS['border'],
             highlightthickness=0
         )
 
-        # Inner frame for content
         self.frame = tk.Frame(
             self.container,
             bg=COLORS['bg_secondary']
         )
         self.frame.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
 
-        # Custom scrollbar
         scrollbar = tk.Scrollbar(
             self.frame,
             bg=COLORS['bg_secondary'],
@@ -174,7 +161,6 @@ class ModTreeView:
         )
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Treeview with modern spacing
         self.tree = ttk.Treeview(
             self.frame,
             columns=('Status', 'Name', 'Date', 'Files'),
@@ -199,7 +185,6 @@ class ModTreeView:
         self.tree.pack(fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.tree.yview)
 
-        # Modern tag styling
         self.tree.tag_configure('enabled', foreground=COLORS['success'])
         self.tree.tag_configure('disabled', foreground=COLORS['fg_secondary'])
 
@@ -219,7 +204,6 @@ class ModTreeView:
         if len(mod_data['files']) > 3:
             files += f" (+{len(mod_data['files'])-3} more)"
 
-        # Format date from ISO string to readable format
         from datetime import datetime
         date_str = mod_data.get('added_date', '')
         if date_str:

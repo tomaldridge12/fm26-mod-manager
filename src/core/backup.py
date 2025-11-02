@@ -1,10 +1,3 @@
-"""
-Backup and restore operations for game files.
-
-Implements space-efficient selective backup strategy that only backs up
-files actually being modified by mods.
-"""
-
 import shutil
 from pathlib import Path
 from typing import List, Tuple, Optional
@@ -46,11 +39,9 @@ class BackupManager:
             source = self.data_path / file_name
             dest = self.original_backup_dir / file_name
 
-            # Skip if already backed up (preserve first backup)
             if dest.exists():
                 continue
 
-            # Skip if source doesn't exist (mod might add new files)
             if not source.exists():
                 continue
 

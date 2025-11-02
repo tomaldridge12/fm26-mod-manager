@@ -1,7 +1,3 @@
-"""
-FM26 Mod Manager - Entry point with global exception handling.
-"""
-
 import sys
 import traceback
 import tkinter as tk
@@ -20,7 +16,6 @@ def handle_exception(exc_type, exc_value, exc_traceback):
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
         return
 
-    # Try to get the root window, fall back to a temp window if needed
     try:
         root = tk._default_root
         if root:
@@ -33,7 +28,6 @@ def handle_exception(exc_type, exc_value, exc_traceback):
                 ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
             )
     except:
-        # Fallback if we can't show the dialog
         print(f"Fatal error: {exc_value}")
         traceback.print_exception(exc_type, exc_value, exc_traceback)
 
@@ -56,7 +50,6 @@ def main():
         root.mainloop()
 
     except Exception as e:
-        # Create temporary window for startup error
         temp_root = tk.Tk()
         temp_root.withdraw()
         show_error(
