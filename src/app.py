@@ -23,7 +23,7 @@ class FM26ModManagerApp:
         self.root.title("FM26 Mod Manager")
         self.root.geometry("1000x750")
         self.root.configure(bg=COLORS['bg_primary'])
-        self.root.minsize(900, 600)
+        self.root.minsize(900, 950)
 
         self.path_manager = PathManager()
         self.fm_root_path = None
@@ -150,8 +150,6 @@ class FM26ModManagerApp:
         # Mod list fills remaining space
         self._create_mod_list()
 
-        self._create_mod_controls()
-        
         # Set up logger callbacks
         self.logger.set_ui_callback(self._on_log_message)
         self.logger.set_status_callback(self.status_bar.show)
@@ -259,6 +257,7 @@ class FM26ModManagerApp:
         button_frame = ttk.Frame(self.root)
         button_frame.pack(fill=tk.X, padx=30, pady=(0, 20))
 
+        # Left-aligned buttons
         ActionButton(
             button_frame,
             "Add Mod",
@@ -283,6 +282,31 @@ class FM26ModManagerApp:
             icon="▶"
         ).pack(side=tk.LEFT)
 
+        # Right-aligned mod control buttons
+        ActionButton(
+            button_frame,
+            "Remove",
+            self._remove_mod,
+            style='danger',
+            icon="×"
+        ).pack(side=tk.RIGHT)
+
+        ActionButton(
+            button_frame,
+            "Disable",
+            self._disable_mod,
+            style='secondary',
+            icon="○"
+        ).pack(side=tk.RIGHT, padx=(0, 8))
+
+        ActionButton(
+            button_frame,
+            "Enable",
+            self._enable_mod,
+            style='success',
+            icon="✓"
+        ).pack(side=tk.RIGHT, padx=(0, 8))
+
     def _create_mod_list(self):
         """Create modern mod list display."""
         list_frame = ttk.Frame(self.root)
@@ -299,35 +323,6 @@ class FM26ModManagerApp:
 
         self.mod_tree = ModTreeView(list_frame)
         self.mod_tree.pack(fill=tk.BOTH, expand=True)
-
-    def _create_mod_controls(self):
-        """Create modern mod control buttons."""
-        control_frame = ttk.Frame(self.root)
-        control_frame.pack(fill=tk.X, padx=30, pady=(0, 15))
-
-        ActionButton(
-            control_frame,
-            "Enable",
-            self._enable_mod,
-            style='success',
-            icon="✓"
-        ).pack(side=tk.LEFT, padx=(0, 8))
-
-        ActionButton(
-            control_frame,
-            "Disable",
-            self._disable_mod,
-            style='secondary',
-            icon="○"
-        ).pack(side=tk.LEFT, padx=(0, 8))
-
-        ActionButton(
-            control_frame,
-            "Remove",
-            self._remove_mod,
-            style='danger',
-            icon="×"
-        ).pack(side=tk.LEFT)
 
     def _setup_drag_drop(self):
         """Setup drag and drop for mod archives."""
