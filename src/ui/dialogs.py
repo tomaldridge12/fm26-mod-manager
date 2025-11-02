@@ -498,3 +498,244 @@ def ask_yes_no(parent, title: str, message: str) -> bool:
     """Show confirmation dialog and return True/False."""
     dialog = ConfirmDialog(parent, title, message)
     return dialog.show()
+
+
+class ProfileDialog(ModernDialog):
+    """Dialog for managing profiles."""
+
+    def __init__(self, parent, profiles: list, current_profile: str):
+        super().__init__(parent, "Manage Profiles", width=600)
+
+        self.profiles = profiles.copy()
+        self.current_profile = current_profile
+        self.selected_profile = current_profile
+
+        container = tk.Frame(self.dialog, bg=COLORS['bg_primary'])
+        container.pack(fill=tk.BOTH, expand=True, padx=25, pady=25)
+
+        title_label = tk.Label(
+            container,
+            text="Manage Profiles",
+            font=('Segoe UI', 14, 'bold'),
+            fg=COLORS['fg_primary'],
+            bg=COLORS['bg_primary']
+        )
+        title_label.pack(anchor=tk.W, pady=(0, 15))
+
+        # Profile list frame
+        list_frame = tk.Frame(container, bg=COLORS['bg_secondary'], highlightthickness=1,
+                             highlightbackground=COLORS['border'])
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+
+        # Listbox for profiles
+        self.profile_listbox = tk.Listbox(
+            list_frame,
+            font=('Segoe UI', 11),
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_primary'],
+            selectbackground=COLORS['accent'],
+            selectforeground='#ffffff',
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=0,
+            activestyle='none'
+        )
+        self.profile_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        scrollbar = tk.Scrollbar(list_frame, command=self.profile_listbox.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.profile_listbox.config(yscrollcommand=scrollbar.set)
+
+        self._refresh_list()
+
+        # Button frame for profile actions
+        action_frame = tk.Frame(container, bg=COLORS['bg_primary'])
+        action_frame.pack(fill=tk.X, pady=(0, 15))
+
+        new_btn = tk.Button(
+            action_frame,
+            text="+ New Profile",
+            command=self._new_profile,
+            bg=COLORS['accent'],
+            fg='#ffffff',
+            font=('Segoe UI', 9, 'bold'),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=15,
+            pady=8
+        )
+        new_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+        rename_btn = tk.Button(
+            action_frame,
+            text="Rename",
+            command=self._rename_profile,
+            bg=COLORS['bg_elevated'],
+            fg=COLORS['fg_primary'],
+            font=('Segoe UI', 9),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=15,
+            pady=8
+        )
+        rename_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+        delete_btn = tk.Button(
+            action_frame,
+            text="Delete",
+            command=self._delete_profile,
+            bg=COLORS['error'],
+            fg='#ffffff',
+            font=('Segoe UI', 9),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=15,
+            pady=8
+        )
+        delete_btn.pack(side=tk.LEFT)
+
+        # Bottom buttons
+        button_frame = tk.Frame(container, bg=COLORS['bg_primary'])
+        button_frame.pack(fill=tk.X)
+
+        cancel_btn = tk.Button(
+            button_frame,
+            text="Cancel",
+            command=self._on_cancel,
+            bg=COLORS['bg_elevated'],
+            fg=COLORS['fg_primary'],
+            font=('Segoe UI', 10),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=25,
+            pady=10
+        )
+        cancel_btn.pack(side=tk.RIGHT, padx=(10, 0))
+
+        switch_btn = tk.Button(
+            button_frame,
+            text="Switch Profile",
+            command=self._on_switch,
+            bg=COLORS['accent'],
+            fg='#ffffff',
+            font=('Segoe UI', 10, 'bold'),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=30,
+            pady=10,
+            activebackground=COLORS['accent_emphasis']
+        )
+        switch_btn.pack(side=tk.RIGHT)
+
+        self.dialog.bind('<Escape>', lambda e: self._on_cancel())
+
+        self._center_on_parent(parent)
+
+    def _refresh_list(self):
+        """Refresh the profile list display."""
+        self.profile_listbox.delete(0, tk.END)
+        for idx, profile in enumerate(self.profiles):
+            name = profile['name']
+            if name == self.current_profile:
+                name += " (current)"
+            self.profile_listbox.insert(tk.END, name)
+            if profile['name'] == self.selected_profile:
+                self.profile_listbox.selection_set(idx)
+
+    def _new_profile(self):
+        """Create a new profile."""
+        name = ask_string(self.dialog, "New Profile", "Enter a name for the new profile:", "")
+        if not name:
+            return
+
+        name = name.strip()
+        if not name:
+            return
+
+        if any(p['name'] == name for p in self.profiles):
+            show_error(self.dialog, "Profile Exists", f"A profile named '{name}' already exists.")
+            return
+
+        self.profiles.append({'name': name, 'mods': []})
+        self.selected_profile = name
+        self._refresh_list()
+
+    def _rename_profile(self):
+        """Rename the selected profile."""
+        selection = self.profile_listbox.curselection()
+        if not selection:
+            return
+
+        idx = selection[0]
+        old_name = self.profiles[idx]['name']
+
+        new_name = ask_string(self.dialog, "Rename Profile", f"Enter new name for '{old_name}':", old_name)
+        if not new_name or new_name == old_name:
+            return
+
+        new_name = new_name.strip()
+        if not new_name:
+            return
+
+        if any(p['name'] == new_name for p in self.profiles):
+            show_error(self.dialog, "Profile Exists", f"A profile named '{new_name}' already exists.")
+            return
+
+        self.profiles[idx]['name'] = new_name
+        if self.current_profile == old_name:
+            self.current_profile = new_name
+        if self.selected_profile == old_name:
+            self.selected_profile = new_name
+        self._refresh_list()
+
+    def _delete_profile(self):
+        """Delete the selected profile."""
+        selection = self.profile_listbox.curselection()
+        if not selection:
+            return
+
+        idx = selection[0]
+        profile_name = self.profiles[idx]['name']
+
+        if profile_name == self.current_profile:
+            show_error(self.dialog, "Cannot Delete", "Cannot delete the currently active profile.")
+            return
+
+        if not ask_yes_no(self.dialog, "Confirm Delete",
+                         f"Are you sure you want to delete profile '{profile_name}'?\n\nAll mods in this profile will be removed."):
+            return
+
+        self.profiles.pop(idx)
+        if self.selected_profile == profile_name:
+            self.selected_profile = self.current_profile
+        self._refresh_list()
+
+    def _on_switch(self):
+        """Switch to selected profile."""
+        selection = self.profile_listbox.curselection()
+        if not selection:
+            return
+
+        idx = selection[0]
+        self.selected_profile = self.profiles[idx]['name']
+        self.result = {
+            'profiles': self.profiles,
+            'selected_profile': self.selected_profile
+        }
+        self.dialog.destroy()
+
+    def _on_cancel(self):
+        """Cancel and close dialog."""
+        self.result = None
+        self.dialog.destroy()
+
+    def show(self):
+        """Display dialog and return result."""
+        self.dialog.wait_window()
+        return self.result
+
+
+def show_profile_dialog(parent, profiles: list, current_profile: str):
+    """Show profile management dialog."""
+    dialog = ProfileDialog(parent, profiles, current_profile)
+    return dialog.show()
