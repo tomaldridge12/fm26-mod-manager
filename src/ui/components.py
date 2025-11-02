@@ -177,7 +177,7 @@ class ModTreeView:
         # Treeview with modern spacing
         self.tree = ttk.Treeview(
             self.frame,
-            columns=('Status', 'Name', 'Files'),
+            columns=('Status', 'Name', 'Date', 'Files'),
             show='tree headings',
             yscrollcommand=scrollbar.set,
             selectmode='browse',
@@ -187,12 +187,14 @@ class ModTreeView:
         self.tree.heading('#0', text='', anchor=tk.W)
         self.tree.heading('Status', text='STATUS', anchor=tk.W)
         self.tree.heading('Name', text='MOD NAME', anchor=tk.W)
+        self.tree.heading('Date', text='DATE ADDED', anchor=tk.W)
         self.tree.heading('Files', text='MODIFIED FILES', anchor=tk.W)
 
         self.tree.column('#0', width=20, stretch=False)
-        self.tree.column('Status', width=120, stretch=False)
-        self.tree.column('Name', width=280)
-        self.tree.column('Files', width=380)
+        self.tree.column('Status', width=100, stretch=False)
+        self.tree.column('Name', width=240)
+        self.tree.column('Date', width=140, stretch=False)
+        self.tree.column('Files', width=280)
 
         self.tree.pack(fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.tree.yview)
@@ -217,8 +219,20 @@ class ModTreeView:
         if len(mod_data['files']) > 3:
             files += f" (+{len(mod_data['files'])-3} more)"
 
+        # Format date from ISO string to readable format
+        from datetime import datetime
+        date_str = mod_data.get('added_date', '')
+        if date_str:
+            try:
+                date_obj = datetime.fromisoformat(date_str)
+                formatted_date = date_obj.strftime('%b %d, %Y')
+            except (ValueError, AttributeError):
+                formatted_date = 'Unknown'
+        else:
+            formatted_date = 'Unknown'
+
         tag = 'enabled' if mod_data['enabled'] else 'disabled'
-        self.tree.insert('', tk.END, values=(status, mod_data['name'], files), tags=(tag,))
+        self.tree.insert('', tk.END, values=(status, mod_data['name'], formatted_date, files), tags=(tag,))
 
     def get_selection(self):
         """Get currently selected item."""
