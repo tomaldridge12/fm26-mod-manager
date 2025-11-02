@@ -20,7 +20,7 @@ class FM26ModManagerApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("FM26 Mod Manager")
-        self.root.geometry("1000x900")
+        self.root.geometry("1000x750")
         self.root.configure(bg=COLORS['bg_primary'])
         self.root.minsize(900, 950)
 
@@ -134,16 +134,22 @@ class FM26ModManagerApp:
         self._create_profile_section()
 
         self._create_action_buttons()
-        self._create_mod_list()
-        self._create_mod_controls()
+
+        # Pack bottom elements first (status bar, then logs, then mod controls)
+        # This ensures they stay at the bottom
+        self.log_viewer = ExpandableLogViewer(self.root)
+        self.log_viewer.pack(fill=tk.X, side=tk.BOTTOM)
+        self.log_viewer.set_clear_callback(self.logger.clear_logs)
 
         self.status_bar = StatusBar(self.root)
         self.status_bar.pack(fill=tk.X, side=tk.BOTTOM)
 
-        self.log_viewer = ExpandableLogViewer(self.root)
-        self.log_viewer.pack(fill=tk.BOTH, side=tk.BOTTOM)
-        self.log_viewer.set_clear_callback(self.logger.clear_logs)
 
+        # Mod list fills remaining space
+        self._create_mod_list()
+
+        self._create_mod_controls()
+        
         # Set up logger callbacks
         self.logger.set_ui_callback(self._on_log_message)
         self.logger.set_status_callback(self.status_bar.show)

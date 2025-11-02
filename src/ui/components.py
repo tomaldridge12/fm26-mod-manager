@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, scrolledtext
 from typing import Callable
 from .styles import COLORS
 
@@ -167,7 +167,7 @@ class ModTreeView:
             show='tree headings',
             yscrollcommand=scrollbar.set,
             selectmode='browse',
-            height=12
+            height=8
         )
 
         self.tree.heading('#0', text='', anchor=tk.W)
@@ -225,3 +225,200 @@ class ModTreeView:
             return None
         item = self.tree.item(selection[0])
         return item['values'][1] if item['values'] else None
+
+
+class ExpandableLogViewer:
+    """Expandable log viewer that sits under the status bar."""
+
+    def __init__(self, parent: tk.Widget):
+        """
+        Create expandable log viewer.
+
+        Args:
+            parent: Parent widget
+        """
+        self.parent = parent
+        self.expanded = False
+        self.log_buffer = []  # Store all logs with their levels
+
+        # Main container
+        self.container = tk.Frame(
+            parent,
+            bg=COLORS['bg_tertiary'],
+            highlightthickness=1,
+            highlightbackground=COLORS['border'],
+            highlightcolor=COLORS['border']
+        )
+
+        # Toggle button bar
+        self.toggle_bar = tk.Frame(
+            self.container,
+            bg=COLORS['bg_tertiary'],
+            height=36
+        )
+        self.toggle_bar.pack(fill=tk.X)
+        self.toggle_bar.pack_propagate(False)
+
+        # Toggle button
+        self.toggle_btn = tk.Button(
+            self.toggle_bar,
+            text="▼  Show Logs",
+            command=self._toggle,
+            bg=COLORS['bg_tertiary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 9),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=15,
+            pady=8,
+            anchor=tk.W,
+            borderwidth=0
+        )
+        self.toggle_btn.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.toggle_btn.bind('<Enter>', lambda e: self.toggle_btn.config(bg=COLORS['bg_elevated']))
+        self.toggle_btn.bind('<Leave>', lambda e: self.toggle_btn.config(bg=COLORS['bg_tertiary']))
+
+        # Clear logs button
+        self.clear_btn = tk.Button(
+            self.toggle_bar,
+            text="Clear Logs",
+            command=self._clear_logs,
+            bg=COLORS['bg_tertiary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 9),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=15,
+            pady=8,
+            borderwidth=0
+        )
+        self.clear_btn.pack(side=tk.RIGHT, padx=(0, 15))
+
+        self.clear_btn.bind('<Enter>', lambda e: self.clear_btn.config(bg=COLORS['bg_elevated'], fg=COLORS['error']))
+        self.clear_btn.bind('<Leave>', lambda e: self.clear_btn.config(bg=COLORS['bg_tertiary'], fg=COLORS['fg_secondary']))
+
+        # Log content frame (initially hidden)
+        self.log_frame = None
+        self.log_text = None
+        self.clear_callback = None
+
+    def pack(self, **kwargs):
+        """Pack the container."""
+        self.container.pack(**kwargs)
+
+    def set_clear_callback(self, callback: Callable):
+        """Set callback for clearing logs."""
+        self.clear_callback = callback
+
+    def _toggle(self):
+        """Toggle log viewer expansion."""
+        if self.expanded:
+            self._collapse()
+        else:
+            self._expand()
+
+    def _expand(self):
+        """Expand the log viewer."""
+        self.expanded = True
+        self.toggle_btn.config(text="▲  Hide Logs")
+
+        # Create log frame
+        self.log_frame = tk.Frame(
+            self.container,
+            bg=COLORS['bg_primary']
+        )
+        self.log_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+
+        # Scrolled text widget
+        self.log_text = scrolledtext.ScrolledText(
+            self.log_frame,
+            height=12,
+            font=('Consolas', 9),
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_primary'],
+            insertbackground=COLORS['accent'],
+            relief=tk.FLAT,
+            wrap=tk.WORD,
+            state=tk.DISABLED,
+            highlightthickness=1,
+            highlightbackground=COLORS['border'],
+            highlightcolor=COLORS['accent']
+        )
+        self.log_text.pack(fill=tk.BOTH, expand=True, pady=(0, 0))
+
+        # Configure tags for different log levels
+        self.log_text.tag_configure('info', foreground=COLORS['info'])
+        self.log_text.tag_configure('success', foreground=COLORS['success'])
+        self.log_text.tag_configure('warning', foreground=COLORS['warning'])
+        self.log_text.tag_configure('error', foreground=COLORS['error'])
+        self.log_text.tag_configure('debug', foreground=COLORS['fg_secondary'])
+
+        # Populate from buffer
+        self.log_text.config(state=tk.NORMAL)
+        for message, level in self.log_buffer:
+            self.log_text.insert(tk.END, message, level)
+        self.log_text.see(tk.END)  # Scroll to bottom
+        self.log_text.config(state=tk.DISABLED)
+
+    def _collapse(self):
+        """Collapse the log viewer."""
+        self.expanded = False
+        self.toggle_btn.config(text="▼  Show Logs")
+
+        if self.log_frame:
+            self.log_frame.destroy()
+            self.log_frame = None
+            self.log_text = None
+
+    def _clear_logs(self):
+        """Clear the log display and call callback."""
+        # Clear buffer
+        self.log_buffer.clear()
+
+        # Clear visible logs if expanded
+        if self.log_text:
+            self.log_text.config(state=tk.NORMAL)
+            self.log_text.delete('1.0', tk.END)
+            self.log_text.config(state=tk.DISABLED)
+
+        if self.clear_callback:
+            self.clear_callback()
+
+    def append_log(self, message: str, level: str = 'info'):
+        """
+        Append a log message.
+
+        Args:
+            message: Log message
+            level: Log level (info, success, warning, error, debug)
+        """
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        formatted_message = f"[{timestamp}] {message}\n"
+
+        # Always add to buffer
+        self.log_buffer.append((formatted_message, level))
+
+        # Update visible widget if expanded
+        if self.log_text:
+            self.log_text.config(state=tk.NORMAL)
+            self.log_text.insert(tk.END, formatted_message, level)
+            self.log_text.see(tk.END)  # Auto-scroll to bottom
+            self.log_text.config(state=tk.DISABLED)
+
+    def load_logs(self, log_contents: str):
+        """
+        Load existing log contents.
+
+        Args:
+            log_contents: Full log file contents
+        """
+        if not self.log_text:
+            return
+
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.delete('1.0', tk.END)
+        self.log_text.insert('1.0', log_contents)
+        self.log_text.see(tk.END)
+        self.log_text.config(state=tk.DISABLED)
