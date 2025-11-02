@@ -2,6 +2,13 @@ import sys
 import traceback
 import tkinter as tk
 
+try:
+    from tkinterdnd2 import TkinterDnD
+    DND_AVAILABLE = True
+except ImportError:
+    TkinterDnD = None
+    DND_AVAILABLE = False
+
 from app import FM26ModManagerApp
 from ui.dialogs import show_error, ask_yes_no
 
@@ -37,7 +44,11 @@ def main():
     try:
         sys.excepthook = handle_exception
 
-        root = tk.Tk()
+        # Use TkinterDnD if available, otherwise fallback to regular Tk
+        if DND_AVAILABLE:
+            root = TkinterDnD.Tk()
+        else:
+            root = tk.Tk()
 
         def on_closing():
             """Handle window close event."""
@@ -46,7 +57,7 @@ def main():
 
         root.protocol("WM_DELETE_WINDOW", on_closing)
 
-        app = FM26ModManagerApp(root)
+        app = FM26ModManagerApp(root, dnd_available=DND_AVAILABLE)
         root.mainloop()
 
     except Exception as e:

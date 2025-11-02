@@ -17,12 +17,13 @@ from ui.dialogs import show_error, show_info, show_success, show_warning, ask_st
 class FM26ModManagerApp:
     """Main application coordinating all mod management operations."""
 
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, dnd_available: bool = False):
         self.root = root
+        self.dnd_available = dnd_available
         self.root.title("FM26 Mod Manager")
         self.root.geometry("1000x750")
         self.root.configure(bg=COLORS['bg_primary'])
-        self.root.minsize(900, 950)
+        self.root.minsize(900, 600)
 
         self.path_manager = PathManager()
         self.fm_root_path = None
@@ -51,6 +52,7 @@ class FM26ModManagerApp:
 
         self._create_ui()
         self._refresh_mod_list()
+        self._setup_drag_drop()
 
         if not self.fm_root_path or not self.path_manager.validate_installation(self.fm_root_path):
             self.status_bar.show("No valid FM26 installation detected. Please browse to your installation folder.", "warning")
@@ -327,6 +329,74 @@ class FM26ModManagerApp:
             icon="×"
         ).pack(side=tk.LEFT)
 
+    def _setup_drag_drop(self):
+        """Setup drag and drop for mod archives."""
+        if not self.dnd_available:
+            self.logger.debug("Drag-and-drop not available (tkinterdnd2 not installed)")
+            return
+
+        try:
+            # Register the window to accept drops
+            self.root.drop_target_register('DND_Files')
+            self.root.dnd_bind('<<Drop>>', self._on_drop)
+            self.root.dnd_bind('<<DragEnter>>', self._on_drag_enter)
+            self.root.dnd_bind('<<DragLeave>>', self._on_drag_leave)
+            self.logger.info("Drag-and-drop enabled for mod archives")
+        except Exception as e:
+            self.logger.warning(f"Failed to setup drag-and-drop: {str(e)}")
+
+    def _on_drag_enter(self, event):
+        """Handle drag enter event."""
+        # Visual feedback that we can accept the drop
+        self.root.configure(bg=COLORS['accent_emphasis'])
+        return event.action
+
+    def _on_drag_leave(self, event):
+        """Handle drag leave event."""
+        # Restore normal background
+        self.root.configure(bg=COLORS['bg_primary'])
+        return event.action
+
+    def _on_drop(self, event):
+        """Handle file drop event."""
+        # Restore normal background
+        self.root.configure(bg=COLORS['bg_primary'])
+
+        # Get dropped files
+        files = event.data
+
+        # Handle different formats (Windows vs Unix)
+        if isinstance(files, str):
+            # Windows: space-separated paths, possibly with braces
+            if files.startswith('{'):
+                # Multiple files with braces: {file1} {file2}
+                import re
+                file_list = re.findall(r'\{([^}]+)\}', files)
+            else:
+                # Single file or space-separated
+                file_list = [files.strip()]
+        else:
+            file_list = list(files)
+
+        # Filter for zip/rar files
+        valid_files = []
+        for file_path in file_list:
+            file_path = file_path.strip()
+            if file_path.lower().endswith(('.zip', '.rar')):
+                valid_files.append(file_path)
+
+        if not valid_files:
+            self.logger.warning("No valid mod archives in dropped files")
+            show_warning(self.root, "Invalid Files",
+                "Please drop ZIP or RAR mod archive files.")
+            return event.action
+
+        # Process each valid file
+        for file_path in valid_files:
+            self._add_mod_from_file(file_path)
+
+        return event.action
+
     def _validate_paths(self) -> bool:
         """Ensure installation paths are valid before operations."""
         if not self.fm_root_path or not self.data_path:
@@ -509,7 +579,7 @@ class FM26ModManagerApp:
             )
 
     def _add_mod(self):
-        """Handle mod addition workflow."""
+        """Handle mod addition workflow via file browser."""
         if not self._validate_paths():
             return
 
@@ -526,6 +596,32 @@ class FM26ModManagerApp:
             self.logger.debug("Mod archive selection cancelled")
             return
 
+        self._add_mod_from_file(file_path)
+
+    def _add_mod_from_file(self, file_path: str):
+        """
+        Add a mod from a file path (used by both file browser and drag-drop).
+
+        Args:
+            file_path: Path to the mod archive file
+        """
+        if not self._validate_paths():
+            return
+
+        # Validate file exists and is a supported format
+        if not Path(file_path).exists():
+            self.logger.error(f"File not found: {file_path}")
+            show_error(self.root, "File Not Found", f"The file does not exist:\n\n{file_path}")
+            return
+
+        if not file_path.lower().endswith(('.zip', '.rar')):
+            self.logger.error(f"Unsupported file format: {file_path}")
+            show_error(self.root, "Unsupported Format",
+                "Only ZIP and RAR archives are supported.\n\n"
+                "Please provide a .zip or .rar file.")
+            return
+
+        # Ask for mod name
         mod_name = ask_string(self.root, "Mod Name", "Enter a name for this mod:", Path(file_path).stem
         )
 

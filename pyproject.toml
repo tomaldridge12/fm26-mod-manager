@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "rarfile>=4.2",
+    "tkinterdnd2>=0.3.0",
 ]
 
 [dependency-groups]
