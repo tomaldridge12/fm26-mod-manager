@@ -23,7 +23,7 @@ class FM26ModManagerApp:
         self.root.title("FM26 Mod Manager")
         self.root.geometry("1000x750")
         self.root.configure(bg=COLORS['bg_primary'])
-        self.root.minsize(900, 950)
+        self.root.minsize(900, 600)
 
         self.path_manager = PathManager()
         self.fm_root_path = None
