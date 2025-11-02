@@ -1,15 +1,14 @@
 # FM26 Mod Manager
 
+![CI Status](https://github.com/tomaldridge12/fm26/actions/workflows/ci.yml/badge.svg)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE.md)
+
 A professional mod manager for Football Manager 2026, built with Python and tkinter.
 
 ## Features
 
 - **Simple Installation Path Selection** - Just select your "Football Manager 26" folder
-- **Automatic OS Detection** - Works on both Windows and macOS
-- **Space-Efficient Backups** - Only backs up files being modified (not 3GB of everything)
-- **Conflict Detection** - Warns you if mods modify the same files
-- **Professional UI** - Modern dark theme with status feedback
-- **Robust Error Handling** - Never crashes, all errors shown in UI
 - **Easy Mod Management** - Enable, disable, and remove mods with one click
 
 ## For Users
@@ -79,10 +78,16 @@ git clone <repository-url>
 cd fm26
 
 # Install dependencies (including dev tools)
-uv sync --dev
+uv sync
 
 # Run in development mode
 uv run python src/main.py
+
+# Run tests
+uv run pytest
+
+# Run tests with verbose output
+uv run pytest -v
 ```
 
 ### Building Executables
@@ -94,14 +99,23 @@ See [BUILD.md](BUILD.md) for detailed build instructions.
 - macOS: `./build_macos.sh`
 
 
-### Adding New Features
+### Testing
 
-1. Identify the appropriate module (core vs UI)
-2. Add functionality to the relevant class
-3. Update UI components if needed
-4. Test error cases thoroughly
-5. Update this README
+The project includes comprehensive unit tests for all core functionality:
 
+```bash
+# Run all tests
+uv run pytest
+
+# Run specific test file
+uv run pytest tests/test_backup.py
+
+# Run with coverage report
+uv run pytest --cov=src --cov-report=html
+```
+
+
+See [tests/README.md](tests/README.md) for detailed test documentation.
 
 ## License
 

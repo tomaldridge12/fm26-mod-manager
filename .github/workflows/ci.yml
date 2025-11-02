@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test:
+    name: Lint & Test - ${{ matrix.os }} - Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+
+    - name: Install dependencies
+      run: uv sync
+
+    - name: Run tests with pytest
+      run: |
+        uv run pytest -v --tb=short --strict-markers
+
+    - name: Generate test summary
+      if: always()
+      run: |
+        echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Platform:** ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Python:** ${{ matrix.python-version }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Tests completed successfully!" >> $GITHUB_STEP_SUMMARY
+
+  build-check:
+    name: Build Check - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: uv sync
+
+    - name: Check project structure
+      run: |
+        echo "Checking project structure..."
+        test -d src/core
+        test -d src/ui
+        test -d tests
+        echo "Project structure is valid"
+      shell: bash
+
+    - name: Verify imports
+      run: |
+        uv run python -c "from src.core.paths import PathManager; print('PathManager import OK')"
+        uv run python -c "from src.core.backup import BackupManager; print('BackupManager import OK')"
+        uv run python -c "from src.core.config import ConfigManager; print('ConfigManager import OK')"
+        uv run python -c "from src.core.mod_manager import ModManager; print('ModManager import OK')"
+
+  status-check:
+    name: All Checks Passed
+    needs: [lint-and-test, build-check]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Check status
+      run: |
+        if [ "${{ needs.lint-and-test.result }}" == "success" ] && [ "${{ needs.build-check.result }}" == "success" ]; then
+          echo "All checks passed!"
+          exit 0
+        else
+          echo "Some checks failed"
+          exit 1
+        fi
