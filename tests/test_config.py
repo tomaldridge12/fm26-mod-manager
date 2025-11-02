@@ -37,80 +37,95 @@ class TestConfigManager:
 
     def test_load_nonexistent_config(self, config_manager):
         """Loading nonexistent config should return default values."""
-        fm_root, mods = config_manager.load()
+        fm_root, mods, profiles, current_profile = config_manager.load()
 
         assert fm_root is None
         assert mods == []
+        assert len(profiles) == 1
+        assert profiles[0]['name'] == 'Default'
+        assert current_profile == 'Default'
 
     def test_save_and_load_config(self, config_manager, sample_mods):
         """Save and load configuration successfully."""
         fm_root = "C:/Program Files/Football Manager 26"
+        profiles = [{'name': 'Default', 'mods': sample_mods}]
+        current_profile = 'Default'
 
-        success = config_manager.save(fm_root, sample_mods)
+        success = config_manager.save(fm_root, profiles, current_profile)
         assert success is True
 
-        loaded_root, loaded_mods = config_manager.load()
+        loaded_root, loaded_mods, loaded_profiles, loaded_current = config_manager.load()
         assert loaded_root == fm_root
-        assert len(loaded_mods) == 2
-        assert loaded_mods[0]['name'] == 'Test Mod 1'
-        assert loaded_mods[0]['enabled'] is True
-        assert loaded_mods[1]['name'] == 'Test Mod 2'
-        assert loaded_mods[1]['enabled'] is False
+        assert loaded_current == 'Default'
+        assert len(loaded_profiles) == 1
+        assert len(loaded_profiles[0]['mods']) == 2
+        assert loaded_profiles[0]['mods'][0]['name'] == 'Test Mod 1'
+        assert loaded_profiles[0]['mods'][0]['enabled'] is True
+        assert loaded_profiles[0]['mods'][1]['name'] == 'Test Mod 2'
+        assert loaded_profiles[0]['mods'][1]['enabled'] is False
 
     def test_save_overwrites_existing_config(self, config_manager, sample_mods):
         """Saving should overwrite existing configuration."""
-        config_manager.save("Path 1", [sample_mods[0]])
+        profiles1 = [{'name': 'Default', 'mods': [sample_mods[0]]}]
+        config_manager.save("Path 1", profiles1, 'Default')
 
-        config_manager.save("Path 2", [sample_mods[1]])
+        profiles2 = [{'name': 'Default', 'mods': [sample_mods[1]]}]
+        config_manager.save("Path 2", profiles2, 'Default')
 
-        loaded_root, loaded_mods = config_manager.load()
+        loaded_root, loaded_mods, loaded_profiles, _ = config_manager.load()
         assert loaded_root == "Path 2"
-        assert len(loaded_mods) == 1
-        assert loaded_mods[0]['name'] == 'Test Mod 2'
+        assert len(loaded_profiles[0]['mods']) == 1
+        assert loaded_profiles[0]['mods'][0]['name'] == 'Test Mod 2'
 
     def test_save_empty_mods(self, config_manager):
         """Saving with empty mods list should work."""
         fm_root = "/some/path"
+        profiles = [{'name': 'Default', 'mods': []}]
 
-        success = config_manager.save(fm_root, [])
+        success = config_manager.save(fm_root, profiles, 'Default')
         assert success is True
 
-        loaded_root, loaded_mods = config_manager.load()
+        loaded_root, loaded_mods, loaded_profiles, _ = config_manager.load()
         assert loaded_root == fm_root
-        assert loaded_mods == []
+        assert loaded_profiles[0]['mods'] == []
 
     def test_save_none_fm_root(self, config_manager, sample_mods):
         """Saving with None fm_root should work."""
-        success = config_manager.save(None, sample_mods)
+        profiles = [{'name': 'Default', 'mods': sample_mods}]
+        success = config_manager.save(None, profiles, 'Default')
         assert success is True
 
-        loaded_root, loaded_mods = config_manager.load()
+        loaded_root, loaded_mods, loaded_profiles, _ = config_manager.load()
         assert loaded_root is None
-        assert len(loaded_mods) == 2
+        assert len(loaded_profiles[0]['mods']) == 2
 
     def test_load_corrupted_config(self, config_manager):
         """Loading corrupted JSON should return defaults."""
         config_manager.config_file.write_text("{ invalid json }")
 
-        fm_root, mods = config_manager.load()
+        fm_root, mods, profiles, current_profile = config_manager.load()
 
         assert fm_root is None
         assert mods == []
+        assert len(profiles) == 1
+        assert profiles[0]['name'] == 'Default'
 
     def test_load_malformed_config(self, config_manager):
         """Loading malformed but valid JSON should return defaults."""
         config_manager.config_file.write_text('{"unexpected_key": "value"}')
 
-        fm_root, mods = config_manager.load()
+        fm_root, mods, profiles, current_profile = config_manager.load()
 
         assert fm_root is None
         assert mods == []
+        assert len(profiles) == 1
 
     def test_atomic_write_creates_temp_file(self, config_manager, sample_mods):
         """Atomic write should use temp file then rename."""
         fm_root = "/test/path"
+        profiles = [{'name': 'Default', 'mods': sample_mods}]
 
-        success = config_manager.save(fm_root, sample_mods)
+        success = config_manager.save(fm_root, profiles, 'Default')
         assert success is True
 
         temp_file = config_manager.config_file.with_suffix('.tmp')
@@ -121,25 +136,28 @@ class TestConfigManager:
     def test_config_file_format(self, config_manager, sample_mods):
         """Saved config should be properly formatted JSON."""
         fm_root = "/test/path"
-        config_manager.save(fm_root, sample_mods)
+        profiles = [{'name': 'Default', 'mods': sample_mods}]
+        config_manager.save(fm_root, profiles, 'Default')
 
         with open(config_manager.config_file, 'r') as f:
             data = json.load(f)
 
         assert 'fm_root_path' in data
-        assert 'mods' in data
+        assert 'profiles' in data
+        assert 'current_profile' in data
         assert data['fm_root_path'] == fm_root
-        assert isinstance(data['mods'], list)
-        assert len(data['mods']) == 2
+        assert isinstance(data['profiles'], list)
+        assert len(data['profiles'][0]['mods']) == 2
 
     def test_save_preserves_mod_data_structure(self, config_manager, sample_mods):
         """All mod data fields should be preserved."""
-        config_manager.save("/path", sample_mods)
+        profiles = [{'name': 'Default', 'mods': sample_mods}]
+        config_manager.save("/path", profiles, 'Default')
 
-        _, loaded_mods = config_manager.load()
+        _, loaded_mods, loaded_profiles, _ = config_manager.load()
 
         original = sample_mods[0]
-        loaded = loaded_mods[0]
+        loaded = loaded_profiles[0]['mods'][0]
 
         assert loaded['name'] == original['name']
         assert loaded['enabled'] == original['enabled']
@@ -161,15 +179,17 @@ class TestConfigManager:
             for i in range(mod_count)
         ]
 
-        success = config_manager.save("/path", mods)
+        profiles = [{'name': 'Default', 'mods': mods}]
+        success = config_manager.save("/path", profiles, 'Default')
         assert success is True
 
-        _, loaded_mods = config_manager.load()
-        assert len(loaded_mods) == mod_count
+        _, loaded_mods, loaded_profiles, _ = config_manager.load()
+        assert len(loaded_profiles[0]['mods']) == mod_count
 
     def test_config_json_is_indented(self, config_manager, sample_mods):
         """Config JSON should be formatted with indentation for readability."""
-        config_manager.save("/path", sample_mods)
+        profiles = [{'name': 'Default', 'mods': sample_mods}]
+        config_manager.save("/path", profiles, 'Default')
 
         content = config_manager.config_file.read_text()
 
@@ -177,21 +197,25 @@ class TestConfigManager:
         assert '  ' in content
 
     def test_load_empty_mods_array(self, config_manager):
-        """Config with empty mods array should load correctly."""
+        """Config with empty mods array should load correctly (old format)."""
         data = {'fm_root_path': '/test/path', 'mods': []}
         config_manager.config_file.write_text(json.dumps(data))
 
-        fm_root, mods = config_manager.load()
+        fm_root, mods, profiles, current_profile = config_manager.load()
 
         assert fm_root == '/test/path'
         assert mods == []
+        assert len(profiles) == 1
+        assert profiles[0]['mods'] == []
 
     def test_load_missing_mods_key(self, config_manager):
-        """Config without mods key should default to empty array."""
+        """Config without mods or profiles key should default to empty array."""
         data = {'fm_root_path': '/test/path'}
         config_manager.config_file.write_text(json.dumps(data))
 
-        fm_root, mods = config_manager.load()
+        fm_root, mods, profiles, current_profile = config_manager.load()
 
         assert fm_root == '/test/path'
         assert mods == []
+        assert len(profiles) == 1
+        assert profiles[0]['mods'] == []
