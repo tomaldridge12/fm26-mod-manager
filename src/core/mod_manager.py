@@ -140,13 +140,78 @@ class ModManager:
         """
         mod_storage = self.mod_storage_dir / mod_name
 
+        # Auto-detect tags based on mod name and file types
+        auto_tags = self._auto_detect_tags(mod_name, bundle_files)
+
+        # Calculate total size of mod files
+        total_size = self._calculate_mod_size(mod_storage, bundle_files)
+
         return {
             'name': mod_name,
             'enabled': False,
             'files': [f.name for f in bundle_files],
             'file_paths': {f.name: str(mod_storage / f.name) for f in bundle_files},
-            'added_date': datetime.now().isoformat()
+            'added_date': datetime.now().isoformat(),
+            'tags': auto_tags,
+            'load_order': 100,  # Default load order (100 is neutral)
+            'size_bytes': total_size
         }
+
+    def _calculate_mod_size(self, mod_storage: Path, bundle_files: List[Path]) -> int:
+        """
+        Calculate total size of mod files in bytes.
+
+        Args:
+            mod_storage: Mod storage directory
+            bundle_files: List of bundle files
+
+        Returns:
+            Total size in bytes
+        """
+        total_size = 0
+        for bundle_file in bundle_files:
+            file_path = mod_storage / bundle_file.name
+            if file_path.exists():
+                total_size += file_path.stat().st_size
+        return total_size
+
+    def _auto_detect_tags(self, mod_name: str, bundle_files: List[Path]) -> List[str]:
+        """
+        Auto-detect tags based on mod name and files.
+
+        Args:
+            mod_name: Name of the mod
+            bundle_files: List of bundle files
+
+        Returns:
+            List of detected tags
+        """
+        tags = []
+        mod_name_lower = mod_name.lower()
+
+        # Common tag patterns
+        tag_patterns = {
+            'Graphics': ['graphic', 'logo', 'kit', 'face', 'skin', 'stadium', 'background'],
+            'Database': ['database', 'data', 'db', 'editor', 'league', 'nation', 'player'],
+            'Gameplay': ['gameplay', 'balance', 'realism', 'difficulty', 'ai'],
+            'Faces': ['face', 'facepack', 'facegen', 'portrait'],
+            'Logos': ['logo', 'badge', 'emblem', 'crest'],
+            'Kits': ['kit', 'uniform', 'jersey'],
+            'Tactics': ['tactic', 'formation', 'strategy'],
+            'Wonderkids': ['wonderkid', 'newgen', 'regen'],
+            'Transfers': ['transfer', 'contract', 'wage'],
+            'UI': ['ui', 'interface', 'skin', 'panel']
+        }
+
+        for tag, patterns in tag_patterns.items():
+            if any(pattern in mod_name_lower for pattern in patterns):
+                tags.append(tag)
+
+        # Default tag if nothing detected
+        if not tags:
+            tags.append('Other')
+
+        return tags
 
     def check_conflicts(self, file_names: List[str]) -> Dict[str, str]:
         """

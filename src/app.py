@@ -10,8 +10,8 @@ from core.config import ConfigManager
 from core.profile_manager import ProfileManager
 from core.logger import AppLogger
 from ui.styles import apply_dark_theme, COLORS
-from ui.components import StatusBar, ActionButton, ModTreeView, ExpandableLogViewer
-from ui.dialogs import show_error, show_info, show_success, show_warning, ask_string, ask_yes_no, show_profile_dialog
+from ui.components import StatusBar, ActionButton, ModTreeView, ExpandableLogViewer, ModDetailsPanel
+from ui.dialogs import show_error, show_info, show_success, show_warning, ask_string, ask_yes_no, show_profile_dialog, show_tag_dialog
 
 
 class FM26ModManagerApp:
@@ -24,6 +24,11 @@ class FM26ModManagerApp:
         self.root.geometry("1000x750")
         self.root.configure(bg=COLORS['bg_primary'])
         self.root.minsize(900, 600)
+
+        # Search and filter state
+        self.search_var = tk.StringVar()
+        self.filter_status_var = tk.StringVar(value="All")
+        self.filter_tag_var = tk.StringVar(value="All Tags")
 
         # Configure Combobox dropdown popup colors
         self.root.option_add('*TCombobox*Listbox.background', COLORS['bg_tertiary'])
@@ -60,6 +65,7 @@ class FM26ModManagerApp:
         self._create_ui()
         self._refresh_mod_list()
         self._setup_drag_drop()
+        self._setup_keyboard_shortcuts()
 
         if not self.fm_root_path or not self.path_manager.validate_installation(self.fm_root_path):
             self.status_bar.show("No valid FM26 installation detected. Please browse to your installation folder.", "warning")
@@ -141,6 +147,7 @@ class FM26ModManagerApp:
 
         self._create_path_section()
         self._create_profile_section()
+        self._create_search_filter_section()
 
         self._create_action_buttons()
 
@@ -258,6 +265,121 @@ class FM26ModManagerApp:
             icon="⚙"
         ).pack(side=tk.LEFT)
 
+    def _create_search_filter_section(self):
+        """Create search and filter controls."""
+        card = tk.Frame(
+            self.root,
+            bg=COLORS['bg_secondary'],
+            highlightthickness=1,
+            highlightbackground=COLORS['border'],
+            highlightcolor=COLORS['border']
+        )
+        card.pack(fill=tk.X, padx=30, pady=(0, 20))
+
+        content = tk.Frame(card, bg=COLORS['bg_secondary'])
+        content.pack(fill=tk.X, padx=15, pady=15)
+
+        # Search box
+        search_frame = tk.Frame(content, bg=COLORS['bg_secondary'])
+        search_frame.pack(fill=tk.X, pady=(0, 10))
+
+        search_label = tk.Label(
+            search_frame,
+            text="🔍",
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 12)
+        )
+        search_label.pack(side=tk.LEFT, padx=(0, 8))
+
+        search_entry = tk.Entry(
+            search_frame,
+            textvariable=self.search_var,
+            font=('Segoe UI', 10),
+            bg=COLORS['bg_tertiary'],
+            fg=COLORS['fg_primary'],
+            insertbackground=COLORS['accent'],
+            relief=tk.FLAT,
+            bd=0
+        )
+        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=8)
+        search_entry.insert(0, "Search mods...")
+        search_entry.bind('<FocusIn>', lambda e: search_entry.delete(0, tk.END) if search_entry.get() == "Search mods..." else None)
+        search_entry.bind('<FocusOut>', lambda e: search_entry.insert(0, "Search mods...") if not search_entry.get() else None)
+        self.search_var.trace_add('write', lambda *args: self._refresh_mod_list())
+
+        # Filter row
+        filter_row = tk.Frame(content, bg=COLORS['bg_secondary'])
+        filter_row.pack(fill=tk.X)
+
+        # Status filter
+        status_label = tk.Label(
+            filter_row,
+            text="Status:",
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 9, 'bold')
+        )
+        status_label.pack(side=tk.LEFT, padx=(0, 8))
+
+        status_filter = ttk.Combobox(
+            filter_row,
+            textvariable=self.filter_status_var,
+            values=["All", "Enabled", "Disabled"],
+            state='readonly',
+            font=('Segoe UI', 9),
+            width=12
+        )
+        status_filter.pack(side=tk.LEFT, padx=(0, 15))
+        status_filter.bind('<<ComboboxSelected>>', lambda e: self._refresh_mod_list())
+
+        # Tag filter
+        tag_label = tk.Label(
+            filter_row,
+            text="Category:",
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 9, 'bold')
+        )
+        tag_label.pack(side=tk.LEFT, padx=(0, 8))
+
+        self.tag_filter = ttk.Combobox(
+            filter_row,
+            textvariable=self.filter_tag_var,
+            values=["All Tags"],
+            state='readonly',
+            font=('Segoe UI', 9),
+            width=18
+        )
+        self.tag_filter.pack(side=tk.LEFT, padx=(0, 15))
+        self.tag_filter.bind('<<ComboboxSelected>>', lambda e: self._refresh_mod_list())
+
+        # Sort by load order toggle
+        self.sort_by_load_order_var = tk.BooleanVar(value=False)
+        sort_check = ttk.Checkbutton(
+            filter_row,
+            text="Sort by Load Order",
+            variable=self.sort_by_load_order_var,
+            command=self._refresh_mod_list
+        )
+        sort_check.pack(side=tk.RIGHT, padx=(15, 0))
+
+        # Clear filters button
+        ActionButton(
+            filter_row,
+            "Clear Filters",
+            self._clear_filters,
+            style='secondary',
+            icon="×"
+        ).pack(side=tk.RIGHT)
+
+    def _clear_filters(self):
+        """Clear all search and filter criteria."""
+        self.search_var.set("")
+        self.filter_status_var.set("All")
+        self.filter_tag_var.set("All Tags")
+        self._refresh_mod_list()
+
     def _create_action_buttons(self):
         """Create modern action buttons."""
         button_frame = ttk.Frame(self.root)
@@ -297,6 +419,48 @@ class FM26ModManagerApp:
             icon="×"
         ).pack(side=tk.RIGHT)
 
+        # Bulk operations section (left of mod controls)
+        bulk_label = tk.Label(
+            button_frame,
+            text="Bulk:",
+            bg=COLORS['bg_primary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 9, 'bold')
+        )
+        bulk_label.pack(side=tk.RIGHT, padx=(20, 8))
+
+        ActionButton(
+            button_frame,
+            "Enable Selected",
+            self._bulk_enable,
+            style='success',
+            icon="✓"
+        ).pack(side=tk.RIGHT, padx=(0, 8))
+
+        ActionButton(
+            button_frame,
+            "Disable Selected",
+            self._bulk_disable,
+            style='secondary',
+            icon="○"
+        ).pack(side=tk.RIGHT, padx=(0, 8))
+
+        ActionButton(
+            button_frame,
+            "Remove Selected",
+            self._bulk_remove,
+            style='danger',
+            icon="×"
+        ).pack(side=tk.RIGHT, padx=(0, 8))
+
+        ActionButton(
+            button_frame,
+            "Tags",
+            self._manage_tags,
+            style='secondary',
+            icon="🏷"
+        ).pack(side=tk.RIGHT, padx=(0, 8))
+
         ActionButton(
             button_frame,
             "Disable",
@@ -314,7 +478,7 @@ class FM26ModManagerApp:
         ).pack(side=tk.RIGHT, padx=(0, 8))
 
     def _create_mod_list(self):
-        """Create modern mod list display."""
+        """Create modern mod list display with details panel."""
         list_frame = ttk.Frame(self.root)
         list_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=(0, 15))
 
@@ -327,8 +491,40 @@ class FM26ModManagerApp:
         )
         header.pack(anchor=tk.W, pady=(0, 10))
 
-        self.mod_tree = ModTreeView(list_frame)
+        # Create PanedWindow for resizable split view
+        paned = tk.PanedWindow(
+            list_frame,
+            orient=tk.HORIZONTAL,
+            bg=COLORS['bg_primary'],
+            sashwidth=4,
+            sashrelief=tk.FLAT,
+            bd=0
+        )
+        paned.pack(fill=tk.BOTH, expand=True)
+
+        # Mod list on the left
+        mod_list_container = tk.Frame(paned, bg=COLORS['bg_primary'])
+        self.mod_tree = ModTreeView(mod_list_container)
         self.mod_tree.pack(fill=tk.BOTH, expand=True)
+
+        # Bind selection event to update details panel
+        self.mod_tree.tree.bind('<<TreeviewSelect>>', self._on_mod_selected)
+
+        paned.add(mod_list_container, minsize=400)
+
+        # Details panel on the right
+        self.details_panel = ModDetailsPanel(paned)
+        paned.add(self.details_panel.container, minsize=250)
+
+    def _on_mod_selected(self, event=None):
+        """Handle mod selection to update details panel."""
+        mod_name = self.mod_tree.get_selection()
+        if mod_name:
+            mod = self.mod_manager.get_mod_by_name(mod_name)
+            if mod:
+                self.details_panel.show_mod_details(mod)
+        else:
+            self.details_panel._show_placeholder()
 
     def _setup_drag_drop(self):
         """Setup drag and drop for mod archives."""
@@ -345,6 +541,61 @@ class FM26ModManagerApp:
             self.logger.info("Drag-and-drop enabled for mod archives")
         except Exception as e:
             self.logger.warning(f"Failed to setup drag-and-drop: {str(e)}")
+
+    def _setup_keyboard_shortcuts(self):
+        """Setup keyboard shortcuts for common actions."""
+        # Ctrl+F: Focus search
+        self.root.bind('<Control-f>', lambda e: self._focus_search())
+
+        # Ctrl+E: Enable selected mod
+        self.root.bind('<Control-e>', lambda e: self._enable_mod())
+
+        # Ctrl+D: Disable selected mod
+        self.root.bind('<Control-d>', lambda e: self._disable_mod())
+
+        # Ctrl+T: Manage tags for selected mod
+        self.root.bind('<Control-t>', lambda e: self._manage_tags())
+
+        # Delete: Remove selected mod
+        self.root.bind('<Delete>', lambda e: self._remove_mod())
+
+        # Ctrl+R: Restore all
+        self.root.bind('<Control-r>', lambda e: self._restore_all())
+
+        # Ctrl+L: Launch game
+        self.root.bind('<Control-l>', lambda e: self._launch_game())
+
+        # Ctrl+N: New profile
+        self.root.bind('<Control-n>', lambda e: self._manage_profiles())
+
+        # Ctrl+A: Add mod
+        self.root.bind('<Control-a>', lambda e: self._add_mod())
+
+        # Ctrl+P: Manage profiles
+        self.root.bind('<Control-p>', lambda e: self._manage_profiles())
+
+        self.logger.info("Keyboard shortcuts enabled")
+
+    def _focus_search(self):
+        """Focus the search entry field."""
+        # Find the search entry widget and focus it
+        for widget in self.root.winfo_children():
+            if isinstance(widget, tk.Frame):
+                self._find_and_focus_search(widget)
+                break
+
+    def _find_and_focus_search(self, widget):
+        """Recursively find and focus search entry."""
+        for child in widget.winfo_children():
+            if isinstance(child, tk.Entry) and str(child.cget('textvariable')) == str(self.search_var):
+                child.focus_set()
+                if child.get() == "Search mods...":
+                    child.delete(0, tk.END)
+                return True
+            elif isinstance(child, (tk.Frame, ttk.Frame)):
+                if self._find_and_focus_search(child):
+                    return True
+        return False
 
     def _on_drag_enter(self, event):
         """Handle drag enter event."""
@@ -868,6 +1119,33 @@ class FM26ModManagerApp:
             self.logger.error(f"Failed to disable mod: {str(e)}")
             show_error(self.root, "Error", f"Failed to disable mod:\n\n{str(e)}")
 
+    def _manage_tags(self):
+        """Handle tag management workflow."""
+        mod_name = self.mod_tree.get_selection()
+        if not mod_name:
+            self.logger.warning("No mod selected for tag management")
+            show_warning(self.root, "No Selection", "Please select a mod to manage tags.")
+            return
+
+        try:
+            mod = self.mod_manager.get_mod_by_name(mod_name)
+            if not mod:
+                return
+
+            current_tags = mod.get('tags', [])
+            new_tags = show_tag_dialog(self.root, mod_name, current_tags)
+
+            if new_tags is not None:  # None means cancelled
+                mod['tags'] = new_tags
+                self._save_config()
+                self._refresh_mod_list()
+                self.logger.info(f"Updated tags for '{mod_name}': {', '.join(new_tags)}")
+                show_info(self.root, "Success", f"Tags updated for '{mod_name}'!")
+
+        except Exception as e:
+            self.logger.error(f"Failed to manage tags: {str(e)}")
+            show_error(self.root, "Error", f"Failed to manage tags:\n\n{str(e)}")
+
     def _remove_mod(self):
         """Handle mod removal workflow."""
         mod_name = self.mod_tree.get_selection()
@@ -974,7 +1252,168 @@ class FM26ModManagerApp:
         self.log_viewer.append_log(message, level)
 
     def _refresh_mod_list(self):
-        """Update mod list display."""
+        """Update mod list display with search and filter applied."""
         self.mod_tree.clear()
-        for mod in self.mod_manager.mods:
+
+        # Get filter criteria
+        search_text = self.search_var.get().lower()
+        if search_text == "search mods...":
+            search_text = ""
+
+        status_filter = self.filter_status_var.get()
+        tag_filter = self.filter_tag_var.get()
+
+        # Sort mods by load order if requested
+        mods_to_display = list(self.mod_manager.mods)
+        if self.sort_by_load_order_var.get():
+            mods_to_display.sort(key=lambda m: m.get('load_order', 100))
+
+        # Filter mods
+        for mod in mods_to_display:
+            # Apply search filter
+            if search_text and search_text not in mod['name'].lower():
+                continue
+
+            # Apply status filter
+            if status_filter == "Enabled" and not mod['enabled']:
+                continue
+            if status_filter == "Disabled" and mod['enabled']:
+                continue
+
+            # Apply tag filter
+            if tag_filter != "All Tags":
+                mod_tags = mod.get('tags', [])
+                if tag_filter not in mod_tags:
+                    continue
+
+            # Add mod to tree
             self.mod_tree.add_mod(mod)
+
+        # Update tag filter dropdown with all available tags
+        self._update_tag_filter_dropdown()
+
+    def _update_tag_filter_dropdown(self):
+        """Update tag filter dropdown with all unique tags from mods."""
+        all_tags = set()
+        for mod in self.mod_manager.mods:
+            tags = mod.get('tags', [])
+            all_tags.update(tags)
+
+        tag_values = ["All Tags"] + sorted(all_tags)
+        self.tag_filter['values'] = tag_values
+
+        # Reset to "All Tags" if current selection is no longer valid
+        if self.filter_tag_var.get() not in tag_values:
+            self.filter_tag_var.set("All Tags")
+
+    def _bulk_enable(self):
+        """Enable all checked mods."""
+        if not self._validate_paths():
+            return
+
+        checked_names = self.mod_tree.get_checked_items()
+        if not checked_names:
+            self.logger.warning("No mods selected for bulk enable")
+            show_warning(self.root, "No Selection", "Please check mods to enable using the checkboxes.")
+            return
+
+        enabled_count = 0
+        failed_count = 0
+
+        for mod_name in checked_names:
+            mod = self.mod_manager.get_mod_by_name(mod_name)
+            if not mod or mod['enabled']:
+                continue
+
+            # Check conflicts
+            conflicts = self.mod_manager.check_conflicts(mod['files'])
+            if conflicts:
+                self.logger.warning(f"Skipping '{mod_name}' due to conflicts")
+                failed_count += 1
+                continue
+
+            # Enable mod
+            backed_up, failed = self.backup_manager.backup_files(mod['files'])
+            if not failed:
+                success, copied_files, error_msg = self.mod_manager.enable_mod(mod, Path(self.data_path))
+                if success:
+                    mod['enabled'] = True
+                    enabled_count += 1
+                else:
+                    failed_count += 1
+
+        self._save_config()
+        self._refresh_mod_list()
+
+        if failed_count > 0:
+            self.logger.warning(f"Bulk enable: {enabled_count} enabled, {failed_count} failed")
+            show_warning(self.root, "Partial Success",
+                        f"Enabled {enabled_count} mod(s).\n{failed_count} failed due to conflicts or errors.")
+        else:
+            self.logger.success(f"Bulk enabled {enabled_count} mod(s)")
+            show_info(self.root, "Success", f"Successfully enabled {enabled_count} mod(s)!")
+
+    def _bulk_disable(self):
+        """Disable all checked mods."""
+        if not self._validate_paths():
+            return
+
+        checked_names = self.mod_tree.get_checked_items()
+        if not checked_names:
+            self.logger.warning("No mods selected for bulk disable")
+            show_warning(self.root, "No Selection", "Please check mods to disable using the checkboxes.")
+            return
+
+        disabled_count = 0
+
+        for mod_name in checked_names:
+            mod = self.mod_manager.get_mod_by_name(mod_name)
+            if not mod or not mod['enabled']:
+                continue
+
+            success, missing, failed = self.backup_manager.restore_files(mod['files'])
+            if success:
+                mod['enabled'] = False
+                disabled_count += 1
+
+        self._save_config()
+        self._refresh_mod_list()
+
+        self.logger.success(f"Bulk disabled {disabled_count} mod(s)")
+        show_info(self.root, "Success", f"Successfully disabled {disabled_count} mod(s)!")
+
+    def _bulk_remove(self):
+        """Remove all checked mods."""
+        checked_names = self.mod_tree.get_checked_items()
+        if not checked_names:
+            self.logger.warning("No mods selected for bulk remove")
+            show_warning(self.root, "No Selection", "Please check mods to remove using the checkboxes.")
+            return
+
+        if not ask_yes_no(self.root,
+            "Confirm Bulk Removal",
+            f"Are you sure you want to remove {len(checked_names)} mod(s)?\n\n"
+            f"This will permanently delete the mod files."
+        ):
+            self.logger.debug("Bulk removal cancelled")
+            return
+
+        removed_count = 0
+
+        for mod_name in checked_names:
+            mod = self.mod_manager.get_mod_by_name(mod_name)
+            if not mod:
+                continue
+
+            if mod['enabled'] and self.backup_manager:
+                self.backup_manager.restore_files(mod['files'])
+
+            self.mod_manager.remove_mod_files(mod_name)
+            self.mod_manager.mods.remove(mod)
+            removed_count += 1
+
+        self._save_config()
+        self._refresh_mod_list()
+
+        self.logger.success(f"Bulk removed {removed_count} mod(s)")
+        show_info(self.root, "Success", f"Successfully removed {removed_count} mod(s)!")

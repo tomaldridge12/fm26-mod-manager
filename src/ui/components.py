@@ -161,26 +161,34 @@ class ModTreeView:
         )
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
+        # Track checked items
+        self.checked_items = set()
+
         self.tree = ttk.Treeview(
             self.frame,
-            columns=('Status', 'Name', 'Date', 'Files'),
+            columns=('Select', 'Status', 'Name', 'Date', 'Files'),
             show='tree headings',
             yscrollcommand=scrollbar.set,
-            selectmode='browse',
+            selectmode='extended',
             height=8
         )
 
         self.tree.heading('#0', text='', anchor=tk.W)
+        self.tree.heading('Select', text='☐', anchor=tk.CENTER)
         self.tree.heading('Status', text='STATUS', anchor=tk.W)
         self.tree.heading('Name', text='MOD NAME', anchor=tk.W)
         self.tree.heading('Date', text='DATE ADDED', anchor=tk.W)
         self.tree.heading('Files', text='MODIFIED FILES', anchor=tk.W)
 
-        self.tree.column('#0', width=20, stretch=False)
-        self.tree.column('Status', width=100, stretch=False)
-        self.tree.column('Name', width=240)
-        self.tree.column('Date', width=140, stretch=False)
-        self.tree.column('Files', width=280)
+        self.tree.column('#0', width=0, stretch=False)
+        self.tree.column('Select', width=30, stretch=False, anchor=tk.CENTER)
+        self.tree.column('Status', width=90, stretch=False)
+        self.tree.column('Name', width=220)
+        self.tree.column('Date', width=130, stretch=False)
+        self.tree.column('Files', width=260)
+
+        # Bind click on Select column to toggle checkbox
+        self.tree.bind('<Button-1>', self._on_click)
 
         self.tree.pack(fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.tree.yview)
@@ -196,9 +204,11 @@ class ModTreeView:
         """Remove all items."""
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self.checked_items.clear()
 
     def add_mod(self, mod_data: dict):
         """Add mod to the tree."""
+        checkbox = "☐"  # Unchecked by default
         status = "✓ Enabled" if mod_data['enabled'] else "○ Disabled"
         files = ', '.join(mod_data['files'][:3])
         if len(mod_data['files']) > 3:
@@ -216,15 +226,73 @@ class ModTreeView:
             formatted_date = 'Unknown'
 
         tag = 'enabled' if mod_data['enabled'] else 'disabled'
-        self.tree.insert('', tk.END, values=(status, mod_data['name'], formatted_date, files), tags=(tag,))
+        self.tree.insert('', tk.END, values=(checkbox, status, mod_data['name'], formatted_date, files), tags=(tag,))
+
+    def _on_click(self, event):
+        """Handle click events for checkbox toggling."""
+        region = self.tree.identify_region(event.x, event.y)
+        if region == 'heading':
+            column = self.tree.identify_column(event.x)
+            if column == '#1':  # Select column
+                self._toggle_all()
+        elif region == 'cell':
+            column = self.tree.identify_column(event.x)
+            if column == '#1':  # Select column
+                item = self.tree.identify_row(event.y)
+                if item:
+                    self._toggle_item(item)
+
+    def _toggle_item(self, item):
+        """Toggle checkbox for an item."""
+        if item in self.checked_items:
+            self.checked_items.remove(item)
+            values = list(self.tree.item(item, 'values'))
+            values[0] = "☐"
+            self.tree.item(item, values=values)
+        else:
+            self.checked_items.add(item)
+            values = list(self.tree.item(item, 'values'))
+            values[0] = "☑"
+            self.tree.item(item, values=values)
+
+    def _toggle_all(self):
+        """Toggle all checkboxes."""
+        all_items = self.tree.get_children()
+        if len(self.checked_items) == len(all_items):
+            # Uncheck all
+            for item in all_items:
+                if item in self.checked_items:
+                    self.checked_items.remove(item)
+                    values = list(self.tree.item(item, 'values'))
+                    values[0] = "☐"
+                    self.tree.item(item, values=values)
+            self.tree.heading('Select', text='☐')
+        else:
+            # Check all
+            for item in all_items:
+                if item not in self.checked_items:
+                    self.checked_items.add(item)
+                    values = list(self.tree.item(item, 'values'))
+                    values[0] = "☑"
+                    self.tree.item(item, values=values)
+            self.tree.heading('Select', text='☑')
 
     def get_selection(self):
-        """Get currently selected item."""
+        """Get currently selected item (for single selection)."""
         selection = self.tree.selection()
         if not selection:
             return None
         item = self.tree.item(selection[0])
-        return item['values'][1] if item['values'] else None
+        return item['values'][2] if item['values'] else None  # Index 2 is Name now
+
+    def get_checked_items(self):
+        """Get list of checked mod names."""
+        checked_names = []
+        for item in self.checked_items:
+            values = self.tree.item(item, 'values')
+            if values:
+                checked_names.append(values[2])  # Index 2 is Name
+        return checked_names
 
 
 class ExpandableLogViewer:
@@ -422,3 +490,273 @@ class ExpandableLogViewer:
         self.log_text.insert('1.0', log_contents)
         self.log_text.see(tk.END)
         self.log_text.config(state=tk.DISABLED)
+
+
+class ModDetailsPanel:
+    """Side panel showing detailed information about selected mod."""
+
+    def __init__(self, parent: tk.Widget):
+        """
+        Create mod details panel.
+
+        Args:
+            parent: Parent widget
+        """
+        self.container = tk.Frame(
+            parent,
+            bg=COLORS['bg_secondary'],
+            highlightthickness=1,
+            highlightbackground=COLORS['border'],
+            width=300
+        )
+        self.container.pack_propagate(False)
+
+        # Header
+        header = tk.Frame(self.container, bg=COLORS['bg_tertiary'], height=40)
+        header.pack(fill=tk.X)
+        header.pack_propagate(False)
+
+        title = tk.Label(
+            header,
+            text="Mod Details",
+            bg=COLORS['bg_tertiary'],
+            fg=COLORS['fg_primary'],
+            font=('Segoe UI', 11, 'bold')
+        )
+        title.pack(side=tk.LEFT, padx=15, pady=10)
+
+        # Scrollable content
+        canvas = tk.Canvas(
+            self.container,
+            bg=COLORS['bg_secondary'],
+            highlightthickness=0
+        )
+        scrollbar = tk.Scrollbar(
+            self.container,
+            command=canvas.yview,
+            bg=COLORS['bg_secondary'],
+            troughcolor=COLORS['bg_secondary'],
+            activebackground=COLORS['accent']
+        )
+        self.content = tk.Frame(canvas, bg=COLORS['bg_secondary'])
+
+        self.content.bind(
+            '<Configure>',
+            lambda e: canvas.configure(scrollregion=canvas.bbox('all'))
+        )
+
+        canvas.create_window((0, 0), window=self.content, anchor=tk.NW)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self._show_placeholder()
+
+    def pack(self, **kwargs):
+        """Pack the container."""
+        self.container.pack(**kwargs)
+
+    def _show_placeholder(self):
+        """Show placeholder when no mod is selected."""
+        self._clear_content()
+
+        placeholder = tk.Label(
+            self.content,
+            text="Select a mod to view details",
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 10, 'italic')
+        )
+        placeholder.pack(padx=20, pady=40)
+
+    def _clear_content(self):
+        """Clear all content."""
+        for widget in self.content.winfo_children():
+            widget.destroy()
+
+    def show_mod_details(self, mod: dict):
+        """
+        Display mod details.
+
+        Args:
+            mod: Mod data dictionary
+        """
+        self._clear_content()
+
+        # Mod name
+        name_label = tk.Label(
+            self.content,
+            text=mod['name'],
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_primary'],
+            font=('Segoe UI', 12, 'bold'),
+            wraplength=260,
+            justify=tk.LEFT
+        )
+        name_label.pack(padx=15, pady=(15, 10), anchor=tk.W)
+
+        # Status
+        status_text = "✓ Enabled" if mod['enabled'] else "○ Disabled"
+        status_color = COLORS['success'] if mod['enabled'] else COLORS['fg_secondary']
+        status_label = tk.Label(
+            self.content,
+            text=status_text,
+            bg=COLORS['bg_secondary'],
+            fg=status_color,
+            font=('Segoe UI', 10, 'bold')
+        )
+        status_label.pack(padx=15, pady=(0, 15), anchor=tk.W)
+
+        # Separator
+        self._add_separator()
+
+        # Date added
+        from datetime import datetime
+        date_str = mod.get('added_date', '')
+        if date_str:
+            try:
+                date_obj = datetime.fromisoformat(date_str)
+                formatted_date = date_obj.strftime('%B %d, %Y at %I:%M %p')
+            except (ValueError, AttributeError):
+                formatted_date = 'Unknown'
+        else:
+            formatted_date = 'Unknown'
+
+        self._add_detail_item("Added", formatted_date)
+
+        # File count
+        file_count = len(mod.get('files', []))
+        self._add_detail_item("Files", str(file_count))
+
+        # Size
+        size_bytes = mod.get('size_bytes', 0)
+        if size_bytes > 0:
+            size_str = self._format_size(size_bytes)
+            self._add_detail_item("Size", size_str)
+
+        # Load order
+        load_order = mod.get('load_order', 100)
+        self._add_detail_item("Load Order", str(load_order))
+
+        # Tags
+        tags = mod.get('tags', [])
+        if tags:
+            self._add_separator()
+            tags_header = tk.Label(
+                self.content,
+                text="Tags",
+                bg=COLORS['bg_secondary'],
+                fg=COLORS['fg_secondary'],
+                font=('Segoe UI', 9, 'bold')
+            )
+            tags_header.pack(padx=15, pady=(10, 5), anchor=tk.W)
+
+            tags_frame = tk.Frame(self.content, bg=COLORS['bg_secondary'])
+            tags_frame.pack(padx=15, pady=(0, 10), anchor=tk.W)
+
+            for tag in tags:
+                tag_pill = tk.Frame(
+                    tags_frame,
+                    bg=COLORS['accent'],
+                    highlightthickness=1,
+                    highlightbackground=COLORS['accent_emphasis']
+                )
+                tag_pill.pack(side=tk.LEFT, padx=(0, 5), pady=2)
+
+                tag_label = tk.Label(
+                    tag_pill,
+                    text=tag,
+                    bg=COLORS['accent'],
+                    fg='#ffffff',
+                    font=('Segoe UI', 8)
+                )
+                tag_label.pack(padx=6, pady=3)
+
+        # Files list
+        self._add_separator()
+        files_header = tk.Label(
+            self.content,
+            text="Modified Files",
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 9, 'bold')
+        )
+        files_header.pack(padx=15, pady=(10, 5), anchor=tk.W)
+
+        files_frame = tk.Frame(
+            self.content,
+            bg=COLORS['bg_tertiary'],
+            highlightthickness=1,
+            highlightbackground=COLORS['border']
+        )
+        files_frame.pack(padx=15, pady=(0, 15), fill=tk.X)
+
+        for file in mod.get('files', []):
+            file_label = tk.Label(
+                files_frame,
+                text=f"• {file}",
+                bg=COLORS['bg_tertiary'],
+                fg=COLORS['fg_primary'],
+                font=('Consolas', 8),
+                anchor=tk.W,
+                wraplength=250,
+                justify=tk.LEFT
+            )
+            file_label.pack(padx=10, pady=3, anchor=tk.W)
+
+    def _format_size(self, size_bytes: int) -> str:
+        """
+        Format size in bytes to human-readable string.
+
+        Args:
+            size_bytes: Size in bytes
+
+        Returns:
+            Formatted size string (e.g., "1.5 MB")
+        """
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size_bytes < 1024.0:
+                if unit == 'B':
+                    return f"{size_bytes} {unit}"
+                return f"{size_bytes:.1f} {unit}"
+            size_bytes /= 1024.0
+        return f"{size_bytes:.1f} TB"
+
+    def _add_separator(self):
+        """Add a visual separator."""
+        separator = tk.Frame(
+            self.content,
+            bg=COLORS['border'],
+            height=1
+        )
+        separator.pack(fill=tk.X, padx=15, pady=10)
+
+    def _add_detail_item(self, label: str, value: str):
+        """
+        Add a detail item row.
+
+        Args:
+            label: Item label
+            value: Item value
+        """
+        frame = tk.Frame(self.content, bg=COLORS['bg_secondary'])
+        frame.pack(padx=15, pady=3, fill=tk.X)
+
+        label_widget = tk.Label(
+            frame,
+            text=f"{label}:",
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 9, 'bold')
+        )
+        label_widget.pack(side=tk.LEFT)
+
+        value_widget = tk.Label(
+            frame,
+            text=value,
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_primary'],
+            font=('Segoe UI', 9)
+        )
+        value_widget.pack(side=tk.LEFT, padx=(5, 0))

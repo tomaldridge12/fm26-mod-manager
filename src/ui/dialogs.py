@@ -594,6 +594,35 @@ class ProfileDialog(ModernDialog):
         )
         delete_btn.pack(side=tk.LEFT)
 
+        # Export/Import buttons
+        import_btn = tk.Button(
+            action_frame,
+            text="Import",
+            command=self._import_profile,
+            bg=COLORS['info'],
+            fg='#ffffff',
+            font=('Segoe UI', 9),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=15,
+            pady=8
+        )
+        import_btn.pack(side=tk.RIGHT)
+
+        export_btn = tk.Button(
+            action_frame,
+            text="Export",
+            command=self._export_profile,
+            bg=COLORS['info'],
+            fg='#ffffff',
+            font=('Segoe UI', 9),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=15,
+            pady=8
+        )
+        export_btn.pack(side=tk.RIGHT, padx=(0, 8))
+
         # Bottom buttons
         button_frame = tk.Frame(container, bg=COLORS['bg_primary'])
         button_frame.pack(fill=tk.X)
@@ -724,6 +753,100 @@ class ProfileDialog(ModernDialog):
         }
         self.dialog.destroy()
 
+    def _export_profile(self):
+        """Export selected profile to JSON file."""
+        selection = self.profile_listbox.curselection()
+        if not selection:
+            show_warning(self.dialog, "No Selection", "Please select a profile to export.")
+            return
+
+        idx = selection[0]
+        profile = self.profiles[idx]
+
+        from tkinter import filedialog
+        import json
+        from pathlib import Path
+        from datetime import datetime
+
+        filename = f"{profile['name']}.fm26profile"
+        file_path = filedialog.asksaveasfilename(
+            parent=self.dialog,
+            title="Export Profile",
+            defaultextension=".fm26profile",
+            initialfile=filename,
+            filetypes=[("FM26 Profile", "*.fm26profile"), ("JSON files", "*.json"), ("All files", "*.*")]
+        )
+
+        if not file_path:
+            return
+
+        try:
+            export_data = {
+                'profile_name': profile['name'],
+                'mod_count': len(profile['mods']),
+                'mods': profile['mods'],
+                'exported_date': datetime.now().isoformat(),
+                'fm26_mod_manager_version': '1.0'
+            }
+
+            with open(file_path, 'w') as f:
+                json.dump(export_data, f, indent=2)
+
+            show_info(self.dialog, "Export Successful",
+                     f"Profile '{profile['name']}' exported successfully!\n\n"
+                     f"File: {Path(file_path).name}\n"
+                     f"Mods: {len(profile['mods'])}")
+
+        except Exception as e:
+            show_error(self.dialog, "Export Failed", f"Failed to export profile:\n\n{str(e)}")
+
+    def _import_profile(self):
+        """Import profile from JSON file."""
+        from tkinter import filedialog
+        import json
+
+        file_path = filedialog.askopenfilename(
+            parent=self.dialog,
+            title="Import Profile",
+            filetypes=[("FM26 Profile", "*.fm26profile"), ("JSON files", "*.json"), ("All files", "*.*")]
+        )
+
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, 'r') as f:
+                import_data = json.load(f)
+
+            profile_name = import_data.get('profile_name', 'Imported Profile')
+            mods = import_data.get('mods', [])
+
+            # Check if profile name already exists
+            original_name = profile_name
+            counter = 1
+            while any(p['name'] == profile_name for p in self.profiles):
+                profile_name = f"{original_name} ({counter})"
+                counter += 1
+
+            # Create new profile with imported data
+            self.profiles.append({
+                'name': profile_name,
+                'mods': mods
+            })
+
+            self.selected_profile = profile_name
+            self._refresh_list()
+
+            show_info(self.dialog, "Import Successful",
+                     f"Profile imported successfully!\n\n"
+                     f"Name: {profile_name}\n"
+                     f"Mods: {len(mods)}\n\n"
+                     f"Note: The mod files themselves are not imported.\n"
+                     f"You'll need to install the mods separately.")
+
+        except Exception as e:
+            show_error(self.dialog, "Import Failed", f"Failed to import profile:\n\n{str(e)}")
+
     def _on_cancel(self):
         """Cancel and close dialog."""
         self.result = None
@@ -738,4 +861,211 @@ class ProfileDialog(ModernDialog):
 def show_profile_dialog(parent, profiles: list, current_profile: str):
     """Show profile management dialog."""
     dialog = ProfileDialog(parent, profiles, current_profile)
+    return dialog.show()
+
+
+class TagManagementDialog:
+    """Dialog for managing mod tags."""
+
+    def __init__(self, parent, mod_name: str, current_tags: list):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(f"Manage Tags - {mod_name}")
+        self.dialog.geometry("500x400")
+        self.dialog.configure(bg=COLORS['bg_primary'])
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        self.mod_name = mod_name
+        self.current_tags = list(current_tags) if current_tags else []
+        self.result = None
+
+        # Available tag categories
+        self.available_tags = [
+            'Graphics', 'Database', 'Gameplay', 'Faces', 'Logos',
+            'Kits', 'Tactics', 'Wonderkids', 'Transfers', 'UI',
+            'Realism', 'Championship', 'Lower Leagues', 'International',
+            'Competition', 'Stadium', 'Other'
+        ]
+
+        self._create_ui()
+
+    def _create_ui(self):
+        """Create dialog UI."""
+        # Header
+        header = tk.Label(
+            self.dialog,
+            text=f"Manage Tags for '{self.mod_name}'",
+            bg=COLORS['bg_primary'],
+            fg=COLORS['fg_primary'],
+            font=('Segoe UI', 12, 'bold')
+        )
+        header.pack(pady=20, padx=20, anchor=tk.W)
+
+        # Main content frame
+        content = tk.Frame(self.dialog, bg=COLORS['bg_primary'])
+        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+
+        # Selected tags section
+        selected_label = tk.Label(
+            content,
+            text="Selected Tags:",
+            bg=COLORS['bg_primary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 10, 'bold')
+        )
+        selected_label.pack(anchor=tk.W, pady=(0, 5))
+
+        selected_frame = tk.Frame(
+            content,
+            bg=COLORS['bg_secondary'],
+            highlightthickness=1,
+            highlightbackground=COLORS['border']
+        )
+        selected_frame.pack(fill=tk.X, pady=(0, 15))
+
+        self.selected_tags_frame = tk.Frame(selected_frame, bg=COLORS['bg_secondary'])
+        self.selected_tags_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        # Available tags section
+        available_label = tk.Label(
+            content,
+            text="Available Tags (click to add):",
+            bg=COLORS['bg_primary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 10, 'bold')
+        )
+        available_label.pack(anchor=tk.W, pady=(0, 5))
+
+        available_frame = tk.Frame(
+            content,
+            bg=COLORS['bg_secondary'],
+            highlightthickness=1,
+            highlightbackground=COLORS['border']
+        )
+        available_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.available_tags_frame = tk.Frame(available_frame, bg=COLORS['bg_secondary'])
+        self.available_tags_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Buttons
+        button_frame = tk.Frame(self.dialog, bg=COLORS['bg_primary'])
+        button_frame.pack(fill=tk.X, padx=20, pady=(0, 20))
+
+        ActionButton(button_frame, "Save", self._on_save, style='primary').pack(side=tk.RIGHT)
+        ActionButton(button_frame, "Cancel", self._on_cancel, style='secondary').pack(side=tk.RIGHT, padx=(0, 10))
+
+        self._refresh_tags()
+
+    def _refresh_tags(self):
+        """Refresh tag display."""
+        # Clear frames
+        for widget in self.selected_tags_frame.winfo_children():
+            widget.destroy()
+        for widget in self.available_tags_frame.winfo_children():
+            widget.destroy()
+
+        # Show selected tags as removable pills
+        if self.current_tags:
+            for tag in self.current_tags:
+                self._create_tag_pill(self.selected_tags_frame, tag, removable=True)
+        else:
+            no_tags_label = tk.Label(
+                self.selected_tags_frame,
+                text="No tags selected",
+                bg=COLORS['bg_secondary'],
+                fg=COLORS['fg_secondary'],
+                font=('Segoe UI', 9, 'italic')
+            )
+            no_tags_label.pack()
+
+        # Show available tags as clickable buttons
+        row_frame = None
+        for i, tag in enumerate(self.available_tags):
+            if tag in self.current_tags:
+                continue
+
+            if i % 4 == 0:
+                row_frame = tk.Frame(self.available_tags_frame, bg=COLORS['bg_secondary'])
+                row_frame.pack(fill=tk.X, pady=2)
+
+            tag_btn = tk.Button(
+                row_frame,
+                text=f"+ {tag}",
+                command=lambda t=tag: self._add_tag(t),
+                bg=COLORS['bg_elevated'],
+                fg=COLORS['accent'],
+                font=('Segoe UI', 9),
+                relief=tk.FLAT,
+                cursor='hand2',
+                padx=10,
+                pady=5
+            )
+            tag_btn.pack(side=tk.LEFT, padx=2)
+            tag_btn.bind('<Enter>', lambda e, b=tag_btn: b.config(bg=COLORS['accent_emphasis'], fg='#ffffff'))
+            tag_btn.bind('<Leave>', lambda e, b=tag_btn: b.config(bg=COLORS['bg_elevated'], fg=COLORS['accent']))
+
+    def _create_tag_pill(self, parent, tag: str, removable: bool = False):
+        """Create a tag pill widget."""
+        pill = tk.Frame(
+            parent,
+            bg=COLORS['accent'],
+            highlightthickness=1,
+            highlightbackground=COLORS['accent_emphasis']
+        )
+        pill.pack(side=tk.LEFT, padx=2, pady=2)
+
+        label = tk.Label(
+            pill,
+            text=tag,
+            bg=COLORS['accent'],
+            fg='#ffffff',
+            font=('Segoe UI', 9)
+        )
+        label.pack(side=tk.LEFT, padx=(8, 4), pady=4)
+
+        if removable:
+            remove_btn = tk.Label(
+                pill,
+                text="×",
+                bg=COLORS['accent'],
+                fg='#ffffff',
+                font=('Segoe UI', 11, 'bold'),
+                cursor='hand2'
+            )
+            remove_btn.pack(side=tk.LEFT, padx=(0, 6), pady=4)
+            remove_btn.bind('<Button-1>', lambda e, t=tag: self._remove_tag(t))
+            remove_btn.bind('<Enter>', lambda e: remove_btn.config(fg=COLORS['error']))
+            remove_btn.bind('<Leave>', lambda e: remove_btn.config(fg='#ffffff'))
+
+    def _add_tag(self, tag: str):
+        """Add a tag to the mod."""
+        if tag not in self.current_tags:
+            self.current_tags.append(tag)
+            self._refresh_tags()
+
+    def _remove_tag(self, tag: str):
+        """Remove a tag from the mod."""
+        if tag in self.current_tags:
+            self.current_tags.remove(tag)
+            self._refresh_tags()
+
+    def _on_save(self):
+        """Save and close."""
+        self.result = self.current_tags
+        self.dialog.destroy()
+
+    def _on_cancel(self):
+        """Cancel and close."""
+        self.result = None
+        self.dialog.destroy()
+
+    def show(self):
+        """Display dialog and return result."""
+        self.dialog.wait_window()
+        return self.result
+
+
+def show_tag_dialog(parent, mod_name: str, current_tags: list):
+    """Show tag management dialog."""
+    dialog = TagManagementDialog(parent, mod_name, current_tags)
     return dialog.show()
