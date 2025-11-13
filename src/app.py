@@ -9,9 +9,10 @@ from core.mod_manager import ModManager
 from core.config import ConfigManager
 from core.profile_manager import ProfileManager
 from core.logger import AppLogger
+from core.update_detector import UpdateDetector
 from ui.styles import apply_dark_theme, COLORS
 from ui.components import StatusBar, ActionButton, ModTreeView, ExpandableLogViewer, ModDetailsPanel
-from ui.dialogs import show_error, show_info, show_success, show_warning, ask_string, ask_yes_no, show_profile_dialog, show_tag_dialog
+from ui.dialogs import show_error, show_info, show_success, show_warning, ask_string, ask_yes_no, show_profile_dialog, show_tag_dialog, show_game_update_dialog
 
 
 class FM26ModManagerApp:
@@ -57,8 +58,10 @@ class FM26ModManagerApp:
         self.profile_manager = ProfileManager()
         if self.data_path:
             self.backup_manager = BackupManager(self.backup_dir, self.data_path)
+            self.update_detector = UpdateDetector(self.data_path)
         else:
             self.backup_manager = None
+            self.update_detector = None
 
         self._load_config()
 
@@ -69,6 +72,9 @@ class FM26ModManagerApp:
 
         if not self.fm_root_path or not self.path_manager.validate_installation(self.fm_root_path):
             self.status_bar.show("No valid FM26 installation detected. Please browse to your installation folder.", "warning")
+        else:
+            # Check for game updates after UI is ready
+            self.root.after(500, self._check_for_game_update)
 
     def _setup_storage(self):
         """Initialize config and backup directory paths."""
@@ -1417,3 +1423,97 @@ class FM26ModManagerApp:
 
         self.logger.success(f"Bulk removed {removed_count} mod(s)")
         show_info(self.root, "Success", f"Successfully removed {removed_count} mod(s)!")
+
+    def _check_for_game_update(self):
+        """Check if the game has been updated and handle recovery."""
+        if not self.update_detector or not self.backup_manager:
+            return
+
+        try:
+            update_detected, message = self.update_detector.detect_update(self.backup_dir)
+
+            if update_detected:
+                self.logger.warning(f"Game update detected: {message}")
+
+                # Get list of enabled mods before recovery
+                enabled_mods = [mod['name'] for mod in self.mod_manager.mods if mod['enabled']]
+
+                # Show update dialog
+                result = show_game_update_dialog(
+                    self.root,
+                    enabled_mods,
+                    len(self.mod_manager.mods)
+                )
+
+                if result == 'recover':
+                    self._handle_game_update_recovery(enabled_mods)
+                else:
+                    self.logger.info("Game update recovery cancelled by user")
+            else:
+                self.logger.debug(f"Update check: {message}")
+
+        except Exception as e:
+            self.logger.error(f"Error checking for game update: {str(e)}")
+
+    def _handle_game_update_recovery(self, previously_enabled_mods: list):
+        """
+        Handle recovery from a game update.
+
+        Args:
+            previously_enabled_mods: List of mod names that were enabled before the update
+        """
+        try:
+            self.logger.info("Starting game update recovery process")
+
+            # Step 1: Clear all old backups (they're from the old game version)
+            self.logger.info("Clearing old backup files...")
+            import shutil
+            backup_files_dir = self.backup_dir / "files"
+            if backup_files_dir.exists():
+                shutil.rmtree(backup_files_dir)
+                backup_files_dir.mkdir(exist_ok=True)
+                self.logger.info("Old backups cleared")
+
+            # Step 2: Clear the fingerprint so it's recalculated
+            self.update_detector.clear_fingerprint(self.backup_dir)
+
+            # Step 3: Disable all mods in the manager
+            for mod in self.mod_manager.mods:
+                mod['enabled'] = False
+
+            # Step 4: Store new fingerprint
+            new_fingerprint = self.update_detector.calculate_game_fingerprint()
+            if new_fingerprint:
+                self.update_detector.store_fingerprint(self.backup_dir, new_fingerprint)
+                self.logger.info("New game fingerprint stored")
+
+            # Step 5: Save config and refresh UI
+            self._save_config()
+            self._refresh_mod_list()
+
+            # Step 6: Inform user
+            recovery_message = (
+                f"Game update recovery complete!\n\n"
+                f"• Old backups cleared\n"
+                f"• All mods marked as disabled\n"
+                f"• {len(self.mod_manager.mods)} mod(s) ready to re-enable\n\n"
+            )
+
+            if previously_enabled_mods:
+                recovery_message += (
+                    f"Previously enabled mods ({len(previously_enabled_mods)}):\n" +
+                    "\n".join([f"  • {mod}" for mod in previously_enabled_mods[:10]])
+                )
+                if len(previously_enabled_mods) > 10:
+                    recovery_message += f"\n  ... and {len(previously_enabled_mods) - 10} more"
+
+                recovery_message += "\n\nYou can now re-enable these mods using the bulk enable feature."
+
+            self.logger.success("Game update recovery completed successfully")
+            show_info(self.root, "Recovery Complete", recovery_message)
+
+        except Exception as e:
+            self.logger.error(f"Recovery failed: {str(e)}")
+            show_error(self.root, "Recovery Failed",
+                      f"An error occurred during recovery:\n\n{str(e)}\n\n"
+                      f"Please check the logs for details.")

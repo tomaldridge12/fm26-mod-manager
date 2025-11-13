@@ -1069,3 +1069,229 @@ def show_tag_dialog(parent, mod_name: str, current_tags: list):
     """Show tag management dialog."""
     dialog = TagManagementDialog(parent, mod_name, current_tags)
     return dialog.show()
+
+
+class GameUpdateDialog:
+    """Dialog for handling game update detection and recovery."""
+
+    def __init__(self, parent, enabled_mods: list, total_mods: int):
+        """
+        Create game update dialog.
+
+        Args:
+            parent: Parent window
+            enabled_mods: List of currently enabled mod names
+            total_mods: Total number of installed mods
+        """
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Game Update Detected")
+        self.dialog.geometry("600x500")
+        self.dialog.configure(bg=COLORS['bg_primary'])
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        self.enabled_mods = enabled_mods
+        self.total_mods = total_mods
+        self.result = None
+
+        self._create_ui()
+
+    def _create_ui(self):
+        """Create dialog UI."""
+        # Warning header
+        header_frame = tk.Frame(
+            self.dialog,
+            bg=COLORS['warning_emphasis'],
+            highlightthickness=2,
+            highlightbackground=COLORS['warning']
+        )
+        header_frame.pack(fill=tk.X, padx=20, pady=(20, 15))
+
+        warning_icon = tk.Label(
+            header_frame,
+            text="⚠",
+            bg=COLORS['warning_emphasis'],
+            fg='#ffffff',
+            font=('Segoe UI', 32)
+        )
+        warning_icon.pack(pady=15)
+
+        title = tk.Label(
+            header_frame,
+            text="Football Manager 2026 Update Detected",
+            bg=COLORS['warning_emphasis'],
+            fg='#ffffff',
+            font=('Segoe UI', 16, 'bold')
+        )
+        title.pack(pady=(0, 15))
+
+        # Explanation
+        content = tk.Frame(self.dialog, bg=COLORS['bg_primary'])
+        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+
+        explanation = tk.Label(
+            content,
+            text=(
+                "The game appears to have been updated. When Football Manager updates, "
+                "all mod files are overwritten by the new vanilla game files.\n\n"
+                "This means your mods need to be reinstalled."
+            ),
+            bg=COLORS['bg_primary'],
+            fg=COLORS['fg_primary'],
+            font=('Segoe UI', 10),
+            wraplength=540,
+            justify=tk.LEFT
+        )
+        explanation.pack(anchor=tk.W, pady=(0, 15))
+
+        # Status info
+        info_frame = tk.Frame(
+            content,
+            bg=COLORS['bg_secondary'],
+            highlightthickness=1,
+            highlightbackground=COLORS['border']
+        )
+        info_frame.pack(fill=tk.X, pady=(0, 15))
+
+        self._add_info_row(info_frame, "Total Installed Mods:", str(self.total_mods))
+        self._add_info_row(info_frame, "Previously Enabled Mods:", str(len(self.enabled_mods)))
+
+        # What will happen section
+        what_happens = tk.Label(
+            content,
+            text="What will happen:",
+            bg=COLORS['bg_primary'],
+            fg=COLORS['fg_primary'],
+            font=('Segoe UI', 11, 'bold')
+        )
+        what_happens.pack(anchor=tk.W, pady=(10, 5))
+
+        steps_frame = tk.Frame(
+            content,
+            bg=COLORS['bg_secondary'],
+            highlightthickness=1,
+            highlightbackground=COLORS['border']
+        )
+        steps_frame.pack(fill=tk.X, pady=(0, 15))
+
+        steps = [
+            "1. All old backup files will be cleared (they're from the old version)",
+            "2. Fresh backups will be created from the new game files",
+            "3. All your mods will be marked as disabled",
+            "4. You can then re-enable your mods one by one or in bulk"
+        ]
+
+        for step in steps:
+            step_label = tk.Label(
+                steps_frame,
+                text=step,
+                bg=COLORS['bg_secondary'],
+                fg=COLORS['fg_primary'],
+                font=('Segoe UI', 9),
+                anchor=tk.W,
+                wraplength=520,
+                justify=tk.LEFT
+            )
+            step_label.pack(anchor=tk.W, padx=15, pady=5)
+
+        # Important note
+        note_frame = tk.Frame(
+            content,
+            bg=COLORS['info_emphasis'],
+            highlightthickness=1,
+            highlightbackground=COLORS['info']
+        )
+        note_frame.pack(fill=tk.X, pady=(0, 15))
+
+        note = tk.Label(
+            note_frame,
+            text=(
+                "IMPORTANT: Your mod files are safe! Only the game files were updated. "
+                "After recovery, you can re-enable your mods normally."
+            ),
+            bg=COLORS['info_emphasis'],
+            fg='#ffffff',
+            font=('Segoe UI', 9, 'bold'),
+            wraplength=520,
+            justify=tk.LEFT
+        )
+        note.pack(padx=15, pady=10)
+
+        # Buttons
+        button_frame = tk.Frame(self.dialog, bg=COLORS['bg_primary'])
+        button_frame.pack(fill=tk.X, padx=20, pady=(0, 20))
+
+        cancel_btn = tk.Button(
+            button_frame,
+            text="Cancel",
+            command=self._on_cancel,
+            bg=COLORS['bg_elevated'],
+            fg=COLORS['fg_primary'],
+            font=('Segoe UI', 10),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=25,
+            pady=10
+        )
+        cancel_btn.pack(side=tk.RIGHT, padx=(10, 0))
+
+        recover_btn = tk.Button(
+            button_frame,
+            text="Start Recovery",
+            command=self._on_recover,
+            bg=COLORS['success'],
+            fg='#ffffff',
+            font=('Segoe UI', 10, 'bold'),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=30,
+            pady=10,
+            activebackground=COLORS['success_emphasis']
+        )
+        recover_btn.pack(side=tk.RIGHT)
+
+        self.dialog.bind('<Escape>', lambda e: self._on_cancel())
+
+    def _add_info_row(self, parent, label: str, value: str):
+        """Add an info row to the frame."""
+        row = tk.Frame(parent, bg=COLORS['bg_secondary'])
+        row.pack(fill=tk.X, padx=15, pady=5)
+
+        label_widget = tk.Label(
+            row,
+            text=label,
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_secondary'],
+            font=('Segoe UI', 9, 'bold')
+        )
+        label_widget.pack(side=tk.LEFT)
+
+        value_widget = tk.Label(
+            row,
+            text=value,
+            bg=COLORS['bg_secondary'],
+            fg=COLORS['fg_primary'],
+            font=('Segoe UI', 9)
+        )
+        value_widget.pack(side=tk.LEFT, padx=(5, 0))
+
+    def _on_recover(self):
+        """Start recovery process."""
+        self.result = 'recover'
+        self.dialog.destroy()
+
+    def _on_cancel(self):
+        """Cancel recovery."""
+        self.result = 'cancel'
+        self.dialog.destroy()
+
+    def show(self):
+        """Display dialog and return result."""
+        self.dialog.wait_window()
+        return self.result
+
+
+def show_game_update_dialog(parent, enabled_mods: list, total_mods: int):
+    """Show game update detection dialog."""
+    dialog = GameUpdateDialog(parent, enabled_mods, total_mods)
+    return dialog.show()
